@@ -5,7 +5,7 @@
   "anchor": {
     "device": "Apple M5 (8-core GPU)",
     "compute_fps": 262.8,
-    "render_fps": 302.1,
+    "render_fps": 272.5,
     "time_spy_graphics": 3000,
     "gb6_metal": 61000
   },

@@ -477,6 +477,14 @@ class _ResultsPanel extends StatelessWidget {
               '${gpuRender!.instances} cubos · '
                   '${gpuRender!.trianglesPerFrame} triângulos',
             ),
+            if (gpuRender!.msaaSamples > 0)
+              _row(
+                'GPU render pipeline',
+                'MSAA ${gpuRender!.msaaSamples}x · HDR '
+                    '${gpuRender!.hdr ? 'sim' : 'não'} · bloom '
+                    '${gpuRender!.bloom ? 'sim' : 'não'} · '
+                    '${gpuRender!.passes} passes',
+              ),
             _row(
               'GPU render score',
               gpuRender!.score.toStringAsFixed(0),

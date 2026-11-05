@@ -6,9 +6,10 @@ import simd
 ///
 /// Dois testes independentes em 1920x1080 off-screen:
 /// - **compute**: kernel pesado de FMA + sin/cos/sqrt.
-/// - **render**: cena 3D real com 1.024 cubos instanciados, depth buffer,
-///   iluminação difusa/especular e céu procedural. Também coleta o tempo
-///   de cada frame para calcular 1% low (frame pacing).
+/// - **render**: cena 3D em MSAA 4x e HDR (rgba16Float), com depth buffer,
+///   iluminação difusa/especular, céu procedural, bloom (bright + blur
+///   separável) e tonemap ACES. Coleta o tempo de cada frame para calcular
+///   1% low (frame pacing).
 ///
 /// O resultado principal é a taxa de frames por segundo medida pelo tempo
 /// de GPU dos command buffers. Não usa MetalKit nem dependência externa.
@@ -34,13 +35,23 @@ final class GpuBenchmark {
   private let computePipeline: MTLComputePipelineState?
   private let computeOutput: MTLBuffer?
 
+  // Render: MSAA 4x em HDR -> resolve -> bloom (bright + 2 blur) -> ACES -> LDR.
   private let backgroundPipeline: MTLRenderPipelineState?
   private let scenePipeline: MTLRenderPipelineState?
+  private let brightPipeline: MTLRenderPipelineState?
+  private let blurPipeline: MTLRenderPipelineState?
+  private let compositePipeline: MTLRenderPipelineState?
   private var skyDepthState: MTLDepthStencilState?
   private var sceneDepthState: MTLDepthStencilState?
   private let sceneVertexBuffer: MTLBuffer?
-  private let renderTexture: MTLTexture?
-  private let depthTexture: MTLTexture?
+  private let msaaColorTexture: MTLTexture?
+  private let msaaDepthTexture: MTLTexture?
+  private let hdrTexture: MTLTexture?
+  private let bloomHalfTexture: MTLTexture?
+  private let bloomBlurATexture: MTLTexture?
+  private let bloomBlurBTexture: MTLTexture?
+  private let finalTexture: MTLTexture?
+  private let sampler: MTLSamplerState?
 
   private init() {
     let dev = MTLCreateSystemDefaultDevice()
@@ -52,11 +63,20 @@ final class GpuBenchmark {
       computeOutput = nil
       backgroundPipeline = nil
       scenePipeline = nil
+      brightPipeline = nil
+      blurPipeline = nil
+      compositePipeline = nil
       skyDepthState = nil
       sceneDepthState = nil
       sceneVertexBuffer = nil
-      renderTexture = nil
-      depthTexture = nil
+      msaaColorTexture = nil
+      msaaDepthTexture = nil
+      hdrTexture = nil
+      bloomHalfTexture = nil
+      bloomBlurATexture = nil
+      bloomBlurBTexture = nil
+      finalTexture = nil
+      sampler = nil
       return
     }
 
@@ -153,7 +173,7 @@ final class GpuBenchmark {
       ) * 0.15f;
 
       col = col / (1.0f + acc * 0.15f);
-      return float4(col * 0.55f, 1.0f);
+      return float4(col * 0.32f, 1.0f);
     }
 
     // ---------------------------------------------------------------
@@ -212,7 +232,7 @@ final class GpuBenchmark {
         0.45f + 0.45f * sin(fi * 0.37f),
         0.45f + 0.45f * sin(fi * 0.53f + 1.0f),
         0.45f + 0.45f * sin(fi * 0.71f + 2.0f)
-      );
+      ) * 1.3f;
       return o;
     }
 
@@ -225,6 +245,62 @@ final class GpuBenchmark {
       float spec = pow(max(dot(reflect(-l, n), viewDir), 0.0f), 24.0f);
       float3 col = in.color * (0.25f + 0.75f * diff) + float3(0.18f) * spec;
       return float4(col, 1.0f);
+    }
+
+    // ---------------------------------------------------------------
+    // Pós-processamento HDR: bloom (bright + blur) e ACES tonemap.
+    // ---------------------------------------------------------------
+    struct BmbPostVOut {
+      float4 position [[position]];
+      float2 uv;
+    };
+
+    vertex BmbPostVOut bmb_post_vertex(uint vid [[vertex_id]]) {
+      float2 p = float2((vid << 1) & 2, vid & 2);
+      BmbPostVOut o;
+      o.position = float4(p * 2.0 - 1.0, 0.0, 1.0);
+      o.uv = p;
+      return o;
+    }
+
+    // Bright pass: extrai apenas o que está acima do threshold (HDR > 1).
+    fragment float4 bmb_bright_fragment(BmbPostVOut in [[stage_in]],
+                                       texture2d<float> scene [[texture(0)]],
+                                       sampler samp [[sampler(0)]]) {
+      float3 c = scene.sample(samp, in.uv).rgb;
+      float bright = max(max(c.r, c.g), c.b);
+      float contribution = max(bright - 0.75f, 0.0f);
+      return float4(c * contribution, 1.0f);
+    }
+
+    // Blur separável (5 taps com pesos de Gauss, dois offsets).
+    fragment float4 bmb_blur_fragment(BmbPostVOut in [[stage_in]],
+                                      texture2d<float> input [[texture(0)]],
+                                      sampler samp [[sampler(0)]],
+                                      constant float2 &direction [[buffer(0)]]) {
+      float3 result = input.sample(samp, in.uv).rgb * 0.227027f;
+      result += input.sample(samp, in.uv + direction * 1.3846154f).rgb * 0.315216f;
+      result += input.sample(samp, in.uv - direction * 1.3846154f).rgb * 0.315216f;
+      result += input.sample(samp, in.uv + direction * 3.2307692f).rgb * 0.070270f;
+      result += input.sample(samp, in.uv - direction * 3.2307692f).rgb * 0.070270f;
+      return float4(result, 1.0f);
+    }
+
+    static float3 bmb_aces(float3 x) {
+      const float a = 2.51f, b = 0.03f, c = 2.43f, d = 0.59f, e = 0.14f;
+      return saturate((x * (a * x + b)) / (x * (c * x + d) + e));
+    }
+
+    fragment float4 bmb_composite_fragment(BmbPostVOut in [[stage_in]],
+                                           texture2d<float> scene [[texture(0)]],
+                                           texture2d<float> bloom [[texture(1)]],
+                                           sampler samp [[sampler(0)]]) {
+      float3 hdr = scene.sample(samp, in.uv).rgb;
+      float3 bloomCol = bloom.sample(samp, in.uv).rgb;
+      float3 color = hdr * 1.1f + bloomCol * 0.65f;
+      color = bmb_aces(color);
+      color = pow(color, float3(1.0f / 2.2f));
+      return float4(color, 1.0f);
     }
     """
 
@@ -243,34 +319,75 @@ final class GpuBenchmark {
         options: .storageModePrivate
       )
 
-      // Céu
+      // Céu (HDR, MSAA 4x)
       if let vertexFn = library.makeFunction(name: "bmb_sky_vertex"),
         let fragmentFn = library.makeFunction(name: "bmb_sky_fragment")
       {
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.vertexFunction = vertexFn
         descriptor.fragmentFunction = fragmentFn
-        descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
-        descriptor.depthAttachmentPixelFormat = .depth32Float
+        descriptor.colorAttachments[0].pixelFormat = .rgba16Float
         descriptor.colorAttachments[0].isBlendingEnabled = false
+        descriptor.depthAttachmentPixelFormat = .depth32Float
+        descriptor.rasterSampleCount = 4
         backgroundPipeline = try? dev.makeRenderPipelineState(descriptor: descriptor)
       } else {
         backgroundPipeline = nil
       }
 
-      // Cena 3D
+      // Cena 3D (HDR, MSAA 4x)
       if let vertexFn = library.makeFunction(name: "bmb_scene_vertex"),
         let fragmentFn = library.makeFunction(name: "bmb_scene_fragment")
       {
         let descriptor = MTLRenderPipelineDescriptor()
         descriptor.vertexFunction = vertexFn
         descriptor.fragmentFunction = fragmentFn
-        descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
-        descriptor.depthAttachmentPixelFormat = .depth32Float
+        descriptor.colorAttachments[0].pixelFormat = .rgba16Float
         descriptor.colorAttachments[0].isBlendingEnabled = false
+        descriptor.depthAttachmentPixelFormat = .depth32Float
+        descriptor.rasterSampleCount = 4
         scenePipeline = try? dev.makeRenderPipelineState(descriptor: descriptor)
       } else {
         scenePipeline = nil
+      }
+
+      // Bright pass (bloom)
+      if let vertexFn = library.makeFunction(name: "bmb_post_vertex"),
+        let fragmentFn = library.makeFunction(name: "bmb_bright_fragment")
+      {
+        let descriptor = MTLRenderPipelineDescriptor()
+        descriptor.vertexFunction = vertexFn
+        descriptor.fragmentFunction = fragmentFn
+        descriptor.colorAttachments[0].pixelFormat = .rgba16Float
+        brightPipeline = try? dev.makeRenderPipelineState(descriptor: descriptor)
+      } else {
+        brightPipeline = nil
+      }
+
+      // Blur separável (bloom)
+      if let vertexFn = library.makeFunction(name: "bmb_post_vertex"),
+        let fragmentFn = library.makeFunction(name: "bmb_blur_fragment")
+      {
+        let descriptor = MTLRenderPipelineDescriptor()
+        descriptor.vertexFunction = vertexFn
+        descriptor.fragmentFunction = fragmentFn
+        descriptor.colorAttachments[0].pixelFormat = .rgba16Float
+        blurPipeline = try? dev.makeRenderPipelineState(descriptor: descriptor)
+      } else {
+        blurPipeline = nil
+      }
+
+      // Composite (ACES + bloom)
+      if let vertexFn = library.makeFunction(name: "bmb_post_vertex"),
+        let fragmentFn = library.makeFunction(name: "bmb_composite_fragment")
+      {
+        let descriptor = MTLRenderPipelineDescriptor()
+        descriptor.vertexFunction = vertexFn
+        descriptor.fragmentFunction = fragmentFn
+        descriptor.colorAttachments[0].pixelFormat = .bgra8Unorm
+        compositePipeline = try? dev.makeRenderPipelineState(descriptor: descriptor)
+      } else {
+        compositePipeline = nil
       }
 
       let vertices = GpuBenchmark.makeCubeVertices()
@@ -280,35 +397,88 @@ final class GpuBenchmark {
         options: .storageModeShared
       )
 
-      let colorDescriptor = MTLTextureDescriptor.texture2DDescriptor(
-        pixelFormat: .bgra8Unorm,
+      let msaaColorDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: .rgba16Float,
         width: width,
         height: height,
         mipmapped: false
       )
-      colorDescriptor.usage = [.renderTarget, .shaderRead]
-      colorDescriptor.storageMode = .private
-      renderTexture = dev.makeTexture(descriptor: colorDescriptor)
+      msaaColorDescriptor.sampleCount = 4
+      msaaColorDescriptor.textureType = .type2DMultisample
+      msaaColorDescriptor.usage = [.renderTarget]
+      msaaColorDescriptor.storageMode = .private
+      msaaColorTexture = dev.makeTexture(descriptor: msaaColorDescriptor)
 
-      let depthDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+      let msaaDepthDescriptor = MTLTextureDescriptor.texture2DDescriptor(
         pixelFormat: .depth32Float,
         width: width,
         height: height,
         mipmapped: false
       )
-      depthDescriptor.usage = [.renderTarget]
-      depthDescriptor.storageMode = .private
-      depthTexture = dev.makeTexture(descriptor: depthDescriptor)
+      msaaDepthDescriptor.sampleCount = 4
+      msaaDepthDescriptor.textureType = .type2DMultisample
+      msaaDepthDescriptor.usage = [.renderTarget]
+      msaaDepthDescriptor.storageMode = .private
+      msaaDepthTexture = dev.makeTexture(descriptor: msaaDepthDescriptor)
+
+      let hdrDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: .rgba16Float,
+        width: width,
+        height: height,
+        mipmapped: false
+      )
+      hdrDescriptor.usage = [.renderTarget, .shaderRead]
+      hdrDescriptor.storageMode = .private
+      hdrTexture = dev.makeTexture(descriptor: hdrDescriptor)
+
+      let halfWidth = width / 2
+      let halfHeight = height / 2
+      let bloomDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: .rgba16Float,
+        width: halfWidth,
+        height: halfHeight,
+        mipmapped: false
+      )
+      bloomDescriptor.usage = [.renderTarget, .shaderRead]
+      bloomDescriptor.storageMode = .private
+      bloomHalfTexture = dev.makeTexture(descriptor: bloomDescriptor)
+      bloomBlurATexture = dev.makeTexture(descriptor: bloomDescriptor)
+      bloomBlurBTexture = dev.makeTexture(descriptor: bloomDescriptor)
+
+      let finalDescriptor = MTLTextureDescriptor.texture2DDescriptor(
+        pixelFormat: .bgra8Unorm,
+        width: width,
+        height: height,
+        mipmapped: false
+      )
+      finalDescriptor.usage = [.renderTarget]
+      finalDescriptor.storageMode = .private
+      finalTexture = dev.makeTexture(descriptor: finalDescriptor)
+
+      let samplerDescriptor = MTLSamplerDescriptor()
+      samplerDescriptor.minFilter = .linear
+      samplerDescriptor.magFilter = .linear
+      samplerDescriptor.mipFilter = .notMipmapped
+      samplerDescriptor.sAddressMode = .clampToEdge
+      samplerDescriptor.tAddressMode = .clampToEdge
+      sampler = dev.makeSamplerState(descriptor: samplerDescriptor)
     } catch {
       computePipeline = nil
       computeOutput = nil
       backgroundPipeline = nil
       scenePipeline = nil
-      skyDepthState = nil
-      sceneDepthState = nil
+      brightPipeline = nil
+      blurPipeline = nil
+      compositePipeline = nil
       sceneVertexBuffer = nil
-      renderTexture = nil
-      depthTexture = nil
+      msaaColorTexture = nil
+      msaaDepthTexture = nil
+      hdrTexture = nil
+      bloomHalfTexture = nil
+      bloomBlurATexture = nil
+      bloomBlurBTexture = nil
+      finalTexture = nil
+      sampler = nil
     }
   }
 
@@ -318,9 +488,13 @@ final class GpuBenchmark {
 
   var isRenderAvailable: Bool {
     device != nil && queue != nil && backgroundPipeline != nil
-      && scenePipeline != nil && sceneVertexBuffer != nil
-      && renderTexture != nil && depthTexture != nil
-      && skyDepthState != nil && sceneDepthState != nil
+      && scenePipeline != nil && brightPipeline != nil
+      && blurPipeline != nil && compositePipeline != nil
+      && sceneVertexBuffer != nil && msaaColorTexture != nil
+      && msaaDepthTexture != nil && hdrTexture != nil
+      && bloomHalfTexture != nil && bloomBlurATexture != nil
+      && bloomBlurBTexture != nil && finalTexture != nil
+      && sampler != nil && skyDepthState != nil && sceneDepthState != nil
   }
 
   /// Informações da GPU para exibir na UI.
@@ -344,6 +518,9 @@ final class GpuBenchmark {
       "iterations": Int(computeIterations),
       "render_iterations": Int(backgroundIterations),
       "scene_instances": sceneInstances,
+      "hdr": true,
+      "msaa_samples": 4,
+      "bloom": true,
     ]
   }
 
@@ -381,71 +558,17 @@ final class GpuBenchmark {
     )
   }
 
-  /// Benchmark de renderização: cena 3D com cubos instanciados, depth buffer
-  /// e iluminação, medindo fps médio e frame pacing (1% low).
+  /// Benchmark de renderização: cena 3D em MSAA 4x e HDR, com bloom
+  /// (bright + blur) e tonemap ACES no passe final. Mede fps médio e
+  /// frame pacing (1% low).
   func runRender(durationMs: Int) throws -> [String: Any] {
-    guard let dev = device, let background = backgroundPipeline,
-      let scene = scenePipeline, let mesh = sceneVertexBuffer,
-      let colorTexture = renderTexture, let depth = depthTexture
-    else {
+    guard isRenderAvailable, let dev = device else {
       throw gpuError("Metal render indisponível neste dispositivo")
     }
 
-    let passDescriptor = MTLRenderPassDescriptor()
-    passDescriptor.colorAttachments[0].texture = colorTexture
-    passDescriptor.colorAttachments[0].loadAction = .clear
-    passDescriptor.colorAttachments[0].storeAction = .store
-    passDescriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1)
-    passDescriptor.depthAttachment.texture = depth
-    passDescriptor.depthAttachment.loadAction = .clear
-    passDescriptor.depthAttachment.storeAction = .dontCare
-    passDescriptor.depthAttachment.clearDepth = 1.0
-
-    let viewProjection = makeViewProjection()
-    var light = SIMD3<Float>(0.45, 0.85, 0.3)
-
     let measurement = try measure(durationMs: durationMs, perFrame: true) {
       commandBuffer, frameIndex in
-      guard let encoder = commandBuffer.makeRenderCommandEncoder(descriptor: passDescriptor)
-      else {
-        return false
-      }
-
-      var time = Float(frameIndex % 4096) * 0.008
-
-      // Céu procedural (não escreve profundidade, não testa).
-      if let skyDepthState = skyDepthState {
-        encoder.setDepthStencilState(skyDepthState)
-      }
-      encoder.setRenderPipelineState(background)
-      encoder.setFragmentBytes(&time, length: MemoryLayout<Float>.size, index: 0)
-      var skyIterations = backgroundIterations
-      encoder.setFragmentBytes(
-        &skyIterations,
-        length: MemoryLayout<UInt32>.size,
-        index: 1
-      )
-      encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
-
-      // Cena 3D instanciada (testada contra a profundidade).
-      if let sceneDepthState = sceneDepthState {
-        encoder.setDepthStencilState(sceneDepthState)
-      }
-      encoder.setRenderPipelineState(scene)
-      var matrix = viewProjection
-      encoder.setVertexBytes(&matrix, length: MemoryLayout<simd_float4x4>.stride, index: 0)
-      encoder.setVertexBytes(&time, length: MemoryLayout<Float>.size, index: 1)
-      encoder.setVertexBuffer(mesh, offset: 0, index: 2)
-      encoder.setFragmentBytes(&light, length: MemoryLayout<SIMD3<Float>>.stride, index: 0)
-      encoder.drawPrimitives(
-        type: .triangle,
-        vertexStart: 0,
-        vertexCount: 36,
-        instanceCount: sceneInstances
-      )
-
-      encoder.endEncoding()
-      return true
+      self.encodeRenderFrame(commandBuffer, frameIndex: frameIndex)
     }
 
     var payload = resultPayload(
@@ -457,7 +580,148 @@ final class GpuBenchmark {
     payload["instances"] = sceneInstances
     payload["triangles_per_frame"] = sceneInstances * cubeTriangles + 1
     payload["shading_iterations"] = Int(backgroundIterations)
+    payload["msaa_samples"] = 4
+    payload["hdr"] = true
+    payload["bloom"] = true
+    payload["passes"] = 5
     return payload
+  }
+
+  private func encodeRenderFrame(_ commandBuffer: MTLCommandBuffer, frameIndex: Int) -> Bool {
+    guard let background = backgroundPipeline,
+      let scene = scenePipeline,
+      let bright = brightPipeline,
+      let blur = blurPipeline,
+      let composite = compositePipeline,
+      let mesh = sceneVertexBuffer,
+      let msaaColor = msaaColorTexture,
+      let msaaDepth = msaaDepthTexture,
+      let hdr = hdrTexture,
+      let bloomHalf = bloomHalfTexture,
+      let bloomBlurA = bloomBlurATexture,
+      let bloomBlurB = bloomBlurBTexture,
+      let final = finalTexture,
+      let sampler = sampler
+    else {
+      return false
+    }
+
+    // Passe HDR (MSAA -> resolve)
+    let scenePass = MTLRenderPassDescriptor()
+    scenePass.colorAttachments[0].texture = msaaColor
+    scenePass.colorAttachments[0].loadAction = .clear
+    scenePass.colorAttachments[0].storeAction = .multisampleResolve
+    scenePass.colorAttachments[0].resolveTexture = hdr
+    scenePass.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1)
+    scenePass.depthAttachment.texture = msaaDepth
+    scenePass.depthAttachment.loadAction = .clear
+    scenePass.depthAttachment.storeAction = .dontCare
+    scenePass.depthAttachment.clearDepth = 1.0
+
+    let brightPass = makePostPass(bloomHalf)
+    let blurHPass = makePostPass(bloomBlurA)
+    let blurVPass = makePostPass(bloomBlurB)
+    let compositePass = makePostPass(final)
+
+    let viewProjection = makeViewProjection()
+    var light = SIMD3<Float>(0.45, 0.85, 0.3)
+    let halfWidth = Float(width / 2)
+    let halfHeight = Float(height / 2)
+    var time = Float(frameIndex % 4096) * 0.008
+
+    // 1) Céu + cena 3D (HDR, MSAA 4x)
+    guard let sceneEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: scenePass)
+    else {
+      return false
+    }
+
+    if let skyDepthState = skyDepthState {
+      sceneEncoder.setDepthStencilState(skyDepthState)
+    }
+    sceneEncoder.setRenderPipelineState(background)
+    sceneEncoder.setFragmentBytes(&time, length: MemoryLayout<Float>.size, index: 0)
+    var skyIterations = backgroundIterations
+    sceneEncoder.setFragmentBytes(
+      &skyIterations,
+      length: MemoryLayout<UInt32>.size,
+      index: 1
+    )
+    sceneEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+
+    if let sceneDepthState = sceneDepthState {
+      sceneEncoder.setDepthStencilState(sceneDepthState)
+    }
+    sceneEncoder.setRenderPipelineState(scene)
+    var matrix = viewProjection
+    sceneEncoder.setVertexBytes(&matrix, length: MemoryLayout<simd_float4x4>.stride, index: 0)
+    sceneEncoder.setVertexBytes(&time, length: MemoryLayout<Float>.size, index: 1)
+    sceneEncoder.setVertexBuffer(mesh, offset: 0, index: 2)
+    sceneEncoder.setFragmentBytes(&light, length: MemoryLayout<SIMD3<Float>>.stride, index: 0)
+    sceneEncoder.drawPrimitives(
+      type: .triangle,
+      vertexStart: 0,
+      vertexCount: 36,
+      instanceCount: sceneInstances
+    )
+    sceneEncoder.endEncoding()
+
+    // 2) Bright pass (bloom: extrai altas luzes)
+    guard let brightEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: brightPass)
+    else {
+      return false
+    }
+    brightEncoder.setRenderPipelineState(bright)
+    brightEncoder.setFragmentTexture(hdr, index: 0)
+    brightEncoder.setFragmentSamplerState(sampler, index: 0)
+    brightEncoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+    brightEncoder.endEncoding()
+
+    // 3) Blur horizontal
+    guard let blurH = commandBuffer.makeRenderCommandEncoder(descriptor: blurHPass) else {
+      return false
+    }
+    blurH.setRenderPipelineState(blur)
+    blurH.setFragmentTexture(bloomHalf, index: 0)
+    blurH.setFragmentSamplerState(sampler, index: 0)
+    var dirH = SIMD2<Float>(1.25 / halfWidth, 0)
+    blurH.setFragmentBytes(&dirH, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
+    blurH.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+    blurH.endEncoding()
+
+    // 4) Blur vertical
+    guard let blurV = commandBuffer.makeRenderCommandEncoder(descriptor: blurVPass) else {
+      return false
+    }
+    blurV.setRenderPipelineState(blur)
+    blurV.setFragmentTexture(bloomBlurA, index: 0)
+    blurV.setFragmentSamplerState(sampler, index: 0)
+    var dirV = SIMD2<Float>(0, 1.25 / halfHeight)
+    blurV.setFragmentBytes(&dirV, length: MemoryLayout<SIMD2<Float>>.stride, index: 0)
+    blurV.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+    blurV.endEncoding()
+
+    // 5) Composite (ACES tonemap + bloom)
+    guard let compositor = commandBuffer.makeRenderCommandEncoder(descriptor: compositePass)
+    else {
+      return false
+    }
+    compositor.setRenderPipelineState(composite)
+    compositor.setFragmentTexture(hdr, index: 0)
+    compositor.setFragmentTexture(bloomBlurB, index: 1)
+    compositor.setFragmentSamplerState(sampler, index: 0)
+    compositor.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 3)
+    compositor.endEncoding()
+
+    return true
+  }
+
+  private func makePostPass(_ texture: MTLTexture) -> MTLRenderPassDescriptor {
+    let descriptor = MTLRenderPassDescriptor()
+    descriptor.colorAttachments[0].texture = texture
+    descriptor.colorAttachments[0].loadAction = .dontCare
+    descriptor.colorAttachments[0].storeAction = .store
+    descriptor.colorAttachments[0].clearColor = MTLClearColorMake(0, 0, 0, 1)
+    return descriptor
   }
 
   // ---------------------------------------------------------------------

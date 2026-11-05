@@ -52,6 +52,12 @@ class GpuBenchResult {
   final int instances;
   final int trianglesPerFrame;
 
+  /// Pipeline HDR do teste de render.
+  final int msaaSamples;
+  final bool hdr;
+  final bool bloom;
+  final int passes;
+
   /// Estatísticas de frame time (apenas render).
   final double avgFrameMs;
   final double p99FrameMs;
@@ -73,6 +79,10 @@ class GpuBenchResult {
     required this.score,
     this.instances = 0,
     this.trianglesPerFrame = 0,
+    this.msaaSamples = 0,
+    this.hdr = false,
+    this.bloom = false,
+    this.passes = 0,
     this.avgFrameMs = 0,
     this.p99FrameMs = 0,
     this.p999FrameMs = 0,
@@ -98,6 +108,10 @@ class GpuBenchResult {
         score: (map['score'] as num?)?.toDouble() ?? 0,
         instances: (map['instances'] as num?)?.toInt() ?? 0,
         trianglesPerFrame: (map['triangles_per_frame'] as num?)?.toInt() ?? 0,
+        msaaSamples: (map['msaa_samples'] as num?)?.toInt() ?? 0,
+        hdr: (map['hdr'] as bool?) ?? false,
+        bloom: (map['bloom'] as bool?) ?? false,
+        passes: (map['passes'] as num?)?.toInt() ?? 0,
         avgFrameMs: (map['avg_frame_ms'] as num?)?.toDouble() ?? 0,
         p99FrameMs: (map['p99_frame_ms'] as num?)?.toDouble() ?? 0,
         p999FrameMs: (map['p999_frame_ms'] as num?)?.toDouble() ?? 0,

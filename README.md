@@ -66,18 +66,19 @@ Score próprio — **não** clona Geekbench/Cinebench.
 - **Disco:** leitura/escrita sequencial em arquivo temporário, removido ao final.
 - **GPU compute (macOS):** kernel Metal de compute (FMA + sin/cos/sqrt) sobre
   1920×1080 off-screen, medido pelo tempo de GPU do command buffer.
-- **GPU render (macOS):** cena 3D em 1920×1080 off-screen com 1.024 cubos
-  instanciados (12.289 triângulos/frame), depth buffer, sky procedural com 24 passos
-  de ruído e iluminação difusa/especular. Mede fps médio e frame pacing
-  (1% low e p99). Exercita rasterização, vertex/fill rate, depth e shading.
+- **GPU render (macOS):** pipeline HDR completo em 1920×1080 off-screen — MSAA 4×
+  com resolve, HDR `rgba16Float`, 1.024 cubos instanciados com depth, iluminação
+  difusa/especular, céu procedural, bloom (bright pass + blur separável em meia
+  resolução) e tonemap ACES com gamma. São 5 passes por frame. Mede fps médio e
+  frame pacing (1% low e p99).
 - **Score:** frames/s × 100. A conversão para 3DMark Time Spy Graphics usa o teste
   de **render**; Geekbench 6 Metal usa o teste de **compute**. Ambas são lineares,
   calibradas no dispositivo âncora de `assets/data/reference_gpu.json` — são
   estimativas, não resultados oficiais.
 
 Referência medida neste MacBook (Apple M5, 8-core GPU):
-`GPU compute ≈ 263 fps` · `GPU render ≈ 302 fps` · `1% low ≈ 277` · `p99 ≈ 3,6 ms` ·
-scores ≈ 26.3k / 30.2k · conversão estimada `Time Spy ≈ 3.000` · `GB6 Metal ≈ 61.000`.
+`GPU compute ≈ 263 fps` · `GPU render ≈ 272 fps` · `1% low ≈ 220` · `p99 ≈ 4,6 ms` ·
+scores ≈ 26.3k / 27.3k · conversão estimada `Time Spy ≈ 3.000` · `GB6 Metal ≈ 61.000`.
 `CPU score ≈ 4.872` · `RAM leitura ≈ 35 GB/s` · `latência ≈ 13 ns` · `SSD ≈ 3.7 GB/s leitura`.
 
 ## Armadilhas conhecidas

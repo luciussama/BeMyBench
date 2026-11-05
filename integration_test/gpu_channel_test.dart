@@ -39,6 +39,7 @@ void main() {
       'GPU render OK: ${render.device} · ${render.fps} fps · '
       '1% low ${render.onePercentLowFps} fps · '
       'p99 ${render.p99FrameMs} ms · '
+      'MSAA ${render.msaaSamples}x · HDR ${render.hdr} · bloom ${render.bloom} · '
       'score ${render.score} · ${render.frames} frames',
     );
   });

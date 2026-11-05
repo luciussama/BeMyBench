@@ -300,7 +300,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
                 color: AppColors.orange,
                 selected: false,
                 enabled: !_running,
-                onTap: () => _gpu.open3dWindow(mode: 'benchmark'),
+                onTap: () => GpuBenchmarkService().open3dWindow(mode: 'benchmark'),
               ),
           ],
         ),

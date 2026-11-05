@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_print
 // Script de verificação manual (não faz parte do app).
 // Roda a leitura real da bateria no macOS e imprime o resultado.
 //

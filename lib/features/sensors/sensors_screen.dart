@@ -120,14 +120,14 @@ class _SensorsScreenState extends State<SensorsScreen> {
               progress: s.ramUsagePercent / 100,
               valueColor: AppColors.loadColor(s.ramUsagePercent),
             ),
-            MetricTile(
+            const MetricTile(
               icon: Icons.thermostat,
               color: AppColors.red,
               label: 'Temperatura',
               value: 'N/A',
               caption: 'requer acesso nativo privilegiado',
             ),
-            MetricTile(
+            const MetricTile(
               icon: Icons.mode_fan_off,
               color: AppColors.violet,
               label: 'Ventoinha',

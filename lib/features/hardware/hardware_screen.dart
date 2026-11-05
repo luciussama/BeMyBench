@@ -101,7 +101,7 @@ class _HardwareScreenState extends State<HardwareScreen> {
                 children: [
                   Expanded(flex: 3, child: _RealtimeCard(info: _info!, battery: _battery)),
                   const SizedBox(width: 16),
-                  Expanded(flex: 2, child: const _LimitsCard()),
+                  const Expanded(flex: 2, child: _LimitsCard()),
                 ],
               )
             else ...[
@@ -159,9 +159,9 @@ class _HeroCard extends StatelessWidget {
               '·  ${info.archLabel}',
               style: const TextStyle(color: AppColors.textMuted, fontSize: 12),
             ),
-            Row(
+            const Row(
               mainAxisSize: MainAxisSize.min,
-              children: const [
+              children: [
                 Icon(Icons.circle, size: 7, color: AppColors.green),
                 SizedBox(width: 5),
                 Text(

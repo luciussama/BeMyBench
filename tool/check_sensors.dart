@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_print
 // Script de verificação manual dos sensores (não faz parte do app).
 //
 //   ../../flutter/bin/dart run tool/check_sensors.dart

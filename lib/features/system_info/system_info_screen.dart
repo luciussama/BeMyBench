@@ -55,10 +55,10 @@ class _SystemInfoScreenState extends State<SystemInfoScreen> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Card(
+          const Card(
             child: ListTile(
-              leading: const Icon(Icons.info_outline),
-              title: const Text('System Info'),
+              leading: Icon(Icons.info_outline),
+              title: Text('System Info'),
               subtitle: Text(
                 'MVP: coleta via sysctl/proc. Windows/Android via MethodChannel nativo (a vir).',
               ),

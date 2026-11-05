@@ -164,11 +164,12 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
       setState(() => _error = e.toString());
     } finally {
       _elapsedTimer?.cancel();
-      if (!mounted) return;
-      setState(() {
-        _running = false;
-        _current = '';
-      });
+      if (mounted) {
+        setState(() {
+          _running = false;
+          _current = '';
+        });
+      }
     }
   }
 
@@ -401,12 +402,12 @@ class _ResultsPanel extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
+          const Row(
             children: [
-              const Icon(Icons.table_chart_outlined,
+              Icon(Icons.table_chart_outlined,
                   size: 16, color: AppColors.textSecondary),
-              const SizedBox(width: 8),
-              const Text(
+              SizedBox(width: 8),
+              Text(
                 'Resultados detalhados',
                 style: TextStyle(
                   color: AppColors.textPrimary,

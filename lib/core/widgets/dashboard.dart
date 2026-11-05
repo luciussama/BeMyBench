@@ -503,7 +503,7 @@ class _LineChartPainter extends CustomPainter {
       ..color = AppColors.borderSoft
       ..strokeWidth = 1;
 
-    final labelStyle = const TextStyle(
+    const labelStyle = TextStyle(
       color: AppColors.textMuted,
       fontSize: 9,
     );
@@ -564,7 +564,7 @@ class _LineChartPainter extends CustomPainter {
 
     // Rótulo eixo X
     final endLabel = TextPainter(
-      text: TextSpan(text: 'agora', style: labelStyle),
+      text: const TextSpan(text: 'agora', style: labelStyle),
       textDirection: TextDirection.ltr,
     )..layout();
     endLabel.paint(

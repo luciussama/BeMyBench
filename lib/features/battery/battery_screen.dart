@@ -140,8 +140,8 @@ class _BatteryScreenState extends State<BatteryScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: const [
+              const Row(
+                children: [
                   Icon(Icons.table_chart_outlined,
                       size: 16, color: AppColors.textSecondary),
                   SizedBox(width: 8),

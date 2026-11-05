@@ -332,17 +332,17 @@ class _StressScreenState extends State<StressScreen> {
                   '${_latestOnePercentLow.toStringAsFixed(1)} fps',
                 ),
                 const Divider(height: 22),
-                Row(
+                const Row(
                   children: [
-                    const Icon(Icons.info_outline,
+                    Icon(Icons.info_outline,
                         size: 14, color: AppColors.textMuted),
-                    const SizedBox(width: 8),
+                    SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Thermal throttling é inferido pela queda de fps. '
                         'O macOS não expõe temperatura de GPU sem execução com '
                         'privilégios (V1.1 pode usar IOKit/SMC).',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: AppColors.textMuted,
                           fontSize: 10,
                           height: 1.5,

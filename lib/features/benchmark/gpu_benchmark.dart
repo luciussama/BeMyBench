@@ -48,6 +48,18 @@ class GpuBenchResult {
   final double pixelsPerSecond;
   final double score;
 
+  /// Geometria desenhada por frame (apenas render).
+  final int instances;
+  final int trianglesPerFrame;
+
+  /// Estatísticas de frame time (apenas render).
+  final double avgFrameMs;
+  final double p99FrameMs;
+  final double p999FrameMs;
+  final double onePercentLowFps;
+  final double pointOnePercentLowFps;
+  final int frameTimeSamples;
+
   const GpuBenchResult({
     this.kind = 'compute',
     required this.device,
@@ -59,9 +71,19 @@ class GpuBenchResult {
     required this.fps,
     required this.pixelsPerSecond,
     required this.score,
+    this.instances = 0,
+    this.trianglesPerFrame = 0,
+    this.avgFrameMs = 0,
+    this.p99FrameMs = 0,
+    this.p999FrameMs = 0,
+    this.onePercentLowFps = 0,
+    this.pointOnePercentLowFps = 0,
+    this.frameTimeSamples = 0,
   });
 
   bool get isRender => kind == 'render';
+
+  bool get hasFrameStats => frameTimeSamples >= 10;
 
   factory GpuBenchResult.fromMap(Map<String, dynamic> map) => GpuBenchResult(
         kind: (map['kind'] as String?) ?? 'compute',
@@ -74,6 +96,16 @@ class GpuBenchResult {
         fps: (map['fps'] as num?)?.toDouble() ?? 0,
         pixelsPerSecond: (map['pixels_per_second'] as num?)?.toDouble() ?? 0,
         score: (map['score'] as num?)?.toDouble() ?? 0,
+        instances: (map['instances'] as num?)?.toInt() ?? 0,
+        trianglesPerFrame: (map['triangles_per_frame'] as num?)?.toInt() ?? 0,
+        avgFrameMs: (map['avg_frame_ms'] as num?)?.toDouble() ?? 0,
+        p99FrameMs: (map['p99_frame_ms'] as num?)?.toDouble() ?? 0,
+        p999FrameMs: (map['p999_frame_ms'] as num?)?.toDouble() ?? 0,
+        onePercentLowFps:
+            (map['one_percent_low_fps'] as num?)?.toDouble() ?? 0,
+        pointOnePercentLowFps:
+            (map['point_one_percent_low_fps'] as num?)?.toDouble() ?? 0,
+        frameTimeSamples: (map['frame_time_samples'] as num?)?.toInt() ?? 0,
       );
 }
 

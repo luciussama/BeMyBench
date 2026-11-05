@@ -102,6 +102,12 @@ class _GpuComparisonPanelState extends State<GpuComparisonPanel> {
                   value: _fmt(estGb6),
                   color: AppColors.accent,
                 ),
+              if (render != null && render.hasFrameStats)
+                _EstimatePill(
+                  label: '1% low',
+                  value: '${render.onePercentLowFps.toStringAsFixed(0)} fps',
+                  color: AppColors.red,
+                ),
               if (render != null)
                 _EstimatePill(
                   label: 'GPU render (jogos)',

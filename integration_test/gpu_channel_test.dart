@@ -32,10 +32,13 @@ void main() {
     expect(render.fps, greaterThan(0));
     expect(render.score, greaterThan(0));
     expect(render.frames, greaterThan(0));
+    expect(render.hasFrameStats, isTrue);
 
     // ignore: avoid_print
     print(
       'GPU render OK: ${render.device} · ${render.fps} fps · '
+      '1% low ${render.onePercentLowFps} fps · '
+      'p99 ${render.p99FrameMs} ms · '
       'score ${render.score} · ${render.frames} frames',
     );
   });

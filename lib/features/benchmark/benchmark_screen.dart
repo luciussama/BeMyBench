@@ -462,10 +462,20 @@ class _ResultsPanel extends StatelessWidget {
               'GPU render frames/s',
               '${gpuRender!.fps.toStringAsFixed(1)} fps',
             ),
+            if (gpuRender!.hasFrameStats) ...[
+              _row(
+                'GPU render 1% low',
+                '${gpuRender!.onePercentLowFps.toStringAsFixed(1)} fps',
+              ),
+              _row(
+                'GPU render p99',
+                '${gpuRender!.p99FrameMs.toStringAsFixed(2)} ms',
+              ),
+            ],
             _row(
               'GPU render cena',
-              '${gpuRender!.width}x${gpuRender!.height} · '
-                  '${gpuRender!.iterations} passes',
+              '${gpuRender!.instances} cubos · '
+                  '${gpuRender!.trianglesPerFrame} triângulos',
             ),
             _row(
               'GPU render score',

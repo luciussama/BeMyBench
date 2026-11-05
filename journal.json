@@ -6,7 +6,7 @@
     "created": "2026-11-05",
     "owner": "sergio",
     "workingDir": "$HOME/repos/BeMyBench",
-    "status": "MVP - Fase 0/1/2 concluídas; GPU compute + render (jogos) em Metal e comparação com Time Spy/GB6 Metal",
+    "status": "MVP - benchmark GPU render com cena 3D real (cubos instanciados + depth) e frame pacing (1% low)",
     "goal": "AIDA64 moderno, cross-platform (macOS, Windows, Linux, Android), com diagnóstico + benchmark + saúde de bateria + auxílio de desempenho.",
     "stack": {
       "ui": "Flutter 3.47.9 / Dart 3.13.7 (instalado em ../flutter)",
@@ -404,6 +404,38 @@
         "unitTests": "3/3"
       },
       "caveat": "O teste de render usa um triângulo full-screen com fragment shader procedural. Mede fill rate/shading, não uma cena completa com geometria, sombras ou ray tracing. Time Spy continua sendo conversão linear calibrada."
+    },
+    {
+      "date": "2026-11-05T14:35",
+      "phase": "Benchmark - GPU render realista",
+      "done": [
+        "Render passou de full-screen fragment shader para cena 3D off-screen: 1024 cubos instanciados, 12.289 triangulos por frame, depth32F, iluminacao difusa/especular e ceu procedural com ruido (24 passos)",
+        "Estados de profundidade separados: ceu (always/sem escrita) e cena (less/com escrita)",
+        "medicao per-frame (1 command buffer por frame) com gpuStartTime/gpuEndTime; calculo de frame time medio, p99 e p999",
+        "GpuBenchResult ganhou instances, trianglesPerFrame, avgFrameMs, p99FrameMs, p999FrameMs, onePercentLowFps, pointOnePercentLowFps e frameTimeSamples",
+        "Ancora da base atualizada para render_fps=302.1 (compute 262.8)",
+        "UI: divulgacao de 1% low e p99 no painel de resultados e pill no comparador",
+        "Integration test confirma compute e render no app real"
+      ],
+      "verified": {
+        "gpuCompute": {
+          "fps": 262.2,
+          "score": 26220
+        },
+        "gpuRender": {
+          "fps": 302.1,
+          "score": 30210,
+          "onePercentLowFps": 277,
+          "p99FrameMs": 3.6,
+          "frameTimeSamples": 340,
+          "instances": 1024,
+          "trianglesPerFrame": 12289
+        },
+        "integrationTest": "compute 262.21 fps; render 302.18 fps (1% low 264.81, p99 3.78 ms)",
+        "flutterAnalyze": "sem erros/warnings",
+        "unitTests": "3/3"
+      },
+      "caveat": "Ainda e uma cena sintetica. Nao inclui MSAA, HDR, sombras, pos-processamento completo ou ray tracing. O 1% low depende do pacing por frame (batch=1), com pequeno overhead de command buffer."
     }
   ],
   "roadmap": {

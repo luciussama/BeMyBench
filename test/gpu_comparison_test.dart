@@ -24,11 +24,19 @@ void main() {
       width: 1920,
       height: 1080,
       iterations: 24,
-      frames: 320,
-      elapsedMs: 1182,
-      fps: 270.8,
-      pixelsPerSecond: 561600000,
-      score: 27080,
+      frames: 340,
+      elapsedMs: 1128,
+      fps: 302.1,
+      pixelsPerSecond: 626600000,
+      score: 30210,
+      instances: 1024,
+      trianglesPerFrame: 12289,
+      avgFrameMs: 3.31,
+      p99FrameMs: 3.6,
+      p999FrameMs: 3.8,
+      onePercentLowFps: 277.0,
+      pointOnePercentLowFps: 262.0,
+      frameTimeSamples: 340,
     );
 
     await tester.pumpWidget(
@@ -52,6 +60,7 @@ void main() {
     expect(find.textContaining('3DMark Time Spy'), findsWidgets);
     expect(find.textContaining('Geekbench 6 Metal'), findsWidgets);
     expect(find.textContaining('GPU render (jogos)'), findsOneWidget);
+    expect(find.textContaining('1% low'), findsOneWidget);
     expect(find.textContaining('GPU compute'), findsOneWidget);
     expect(find.textContaining('Equivalente mais próximo'), findsOneWidget);
   });

@@ -16,5 +16,6 @@ void main() {
     expect(find.text('Sensores'), findsWidgets);
     expect(find.text('Bateria'), findsWidgets);
     expect(find.text('Benchmark'), findsWidgets);
+    expect(find.text('Estresse'), findsWidgets);
   });
 }

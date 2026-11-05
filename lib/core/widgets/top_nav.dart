@@ -20,6 +20,7 @@ class TopNav extends StatelessWidget {
     Icons.thermostat,
     Icons.battery_std,
     Icons.speed,
+    Icons.whatshot,
   ];
 
   @override

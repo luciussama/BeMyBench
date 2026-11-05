@@ -1,0 +1,255 @@
+{
+  "$schema": "bemybench/journal/v1",
+  "project": {
+    "name": "BMyBench",
+    "subtitle": "Be My Bench",
+    "created": "2026-11-05",
+    "owner": "sergio",
+    "workingDir": "$HOME/repos/BeMyBench",
+    "status": "MVP - Fase 0 concluída / Fase 1 em andamento (build macOS funcionando em ~/repos)",
+    "goal": "AIDA64 moderno, cross-platform (macOS, Windows, Linux, Android), com diagnóstico + benchmark + saúde de bateria + auxílio de desempenho.",
+    "stack": {
+      "ui": "Flutter 3.47.9 / Dart 3.13.7 (instalado em ../flutter)",
+      "benchmarkCore": "Rust 1.99.1 (instalado, apenas esqueleto)",
+      "macosNative": "Swift + IOKit (planejado)",
+      "windowsNative": "C++/WMI (planejado)",
+      "linuxNative": "/proc, sysctl, nvme, dmidecode (planejado)",
+      "androidNative": "Kotlin + BatteryManager (planejado)",
+      "tooling": "Node v26.5.0, git 2.54.0, Command Line Tools (Xcode completo AUSENTE)"
+    }
+  },
+  "naming": {
+    "chosen": "BMyBench",
+    "meaning": "Be My Bench",
+    "rejected": [
+      "MultiBench",
+      "OmniBench",
+      "CrossBench",
+      "MultiProbe",
+      "MultiSpec"
+    ],
+    "rejectedReason": "MultiBench já existe (EEMBC MultiBench e CMU MultiBench). BMyBench sem conflitos encontrados em 2026-11-05."
+  },
+  "requirements": {
+    "mvpOriginal": [
+      "Suportar macOS, Windows, Linux, Android (package por sistema)",
+      "Plataforma touchscreen adaptativa vs app padrão",
+      "Testador de bateria do dispositivo (diferencial)",
+      "Testes de memória, GPU e CPU (equivalente Geekbench/Cinebench, score próprio)"
+    ],
+    "futurePerformanceAid": [
+      "Diagnóstico RAM e disco: velocidade RAM, single/dual channel (desktop), saúde e velocidade SSD",
+      "Limpeza de arquivos temporários por ambiente (Windows temp, Windows Update, shader cache; macOS Library/Caches, Xcode DerivedData; Linux /tmp, ~/.cache, /var/cache/apt; Android cache)",
+      "Atualizador de pacotes: winget upgrade --all (Windows), apt/dnf/pacman (Linux), brew/softwareupdate (macOS), verificar via Play Store (Android)",
+      "Benchmark GPU estilo FurMark: cena 3D repetitiva, FPS, monitoramento térmico"
+    ],
+    "nonFunctional": [
+      "1 codebase, 4 pacotes",
+      "Detectar touch automaticamente",
+      "Distribuição direta (site) para funções de limpeza/atualização (restrições Play Store/App Store)",
+      "Nunca ação destrutiva sem whitelist, confirmação e ponto de restauração"
+    ]
+  },
+  "mvpPlan": {
+    "file": "docs/BMyBench_MVP_Planning.md",
+    "inMvp": [
+      "System Info (CPU, GPU, RAM, disco, OS, tela, rede)",
+      "Sensores básicos (temperatura quando disponível, uso CPU/RAM em tempo real)",
+      "Bateria - diagnóstico de saúde (%, ciclos, capacidade design vs atual, tensão, status, tempo estimado)",
+      "Benchmark CPU leve (single/multi-core, score próprio)",
+      "Benchmark Memória leve (GB/s, latência básica)",
+      "Benchmark Disco leve (sequencial)",
+      "GPU info + FPS simples 5-10s",
+      "Detecção Touch (tema/layout adaptativo)",
+      "Storage Breakdown somente leitura"
+    ],
+    "mvpPlusCanAdvance": [
+      "RAM single/dual channel (informativo Windows/Linux, N/A em unificada)",
+      "Saúde SSD leitura básica (nome, tamanho, interface, % usada, temperatura)",
+      "Escaneador de temporários somente leitura",
+      "Verificador de atualizações somente listar (winget upgrade --list, apt list --upgradable)"
+    ],
+    "v1_1": [
+      "Teste completo de bateria (descarga 100%->20%, autonomia real)",
+      "Limpeza com exclusão segura",
+      "Updater 1-clique com admin",
+      "FurMark completo (Metal/Vulkan + proteção térmica)",
+      "Diagnóstico completo RAM/Disco (SMART, TBW)",
+      "Relatório PDF/HTML + histórico"
+    ]
+  },
+  "environmentDetected": {
+    "date": "2026-11-05",
+    "os": "macOS 27.2 (darwin-arm64, Apple Silicon)",
+    "flutter": "3.47.9 stable (em $HOME/Documents/Default Project/flutter)",
+    "dart": "3.13.7",
+    "rustc": "1.99.1",
+    "cargo": "1.99.1",
+    "xcodebuild": "Xcode 27.2 (27B52) instalado em 2026-11-05; xcode-select apontando para /Applications/Xcode.app/Contents/Developer",
+    "cocoapods": "não instalado (ainda não necessário - sem plugins nativos)",
+    "androidSdk": "36.1.0 presente, mas cmdline-tools ausente e licenças não aceitas",
+    "git": "2.54.0",
+    "node": "v26.5.0",
+    "projectLocation": "$HOME/repos/BeMyBench (movido de ~/Documents/Default Project por causa da proteção TCC do macOS 27)",
+    "flutterSdk": "$HOME/Documents/Default Project/flutter"
+  },
+  "decisions": [
+    {
+      "date": "2026-11-05",
+      "topic": "Stack",
+      "decision": "Flutter + Rust (benchmark core) + nativo mínimo por plataforma",
+      "reason": "1 código para 4 OS, touch adaptativo nativo, score consistente cross-platform, sensores via IOKit/WMI/sys"
+    },
+    {
+      "date": "2026-11-05",
+      "topic": "Nome",
+      "decision": "BMyBench (Be My Bench)",
+      "reason": "Único, pessoal, fácil de lembrar, sem conflito com benchmark hardware"
+    },
+    {
+      "date": "2026-11-05",
+      "topic": "MVP vs V1.1",
+      "decision": "MVP = somente leitura/medir. V1.1 = agir (limpar, atualizar, estressar)",
+      "reason": "Risco de apagar/atualizar errado quebra sistema; MVP já entrega 80% do valor"
+    },
+    {
+      "date": "2026-11-05",
+      "topic": "Diário de contexto",
+      "decision": "BeMyBench/journal.json único (escolhido pelo usuário)",
+      "reason": "Leitura futura em 1 arquivo, alinhado ao pedido de diário em JSON"
+    },
+    {
+      "date": "2026-11-05",
+      "topic": "Setup",
+      "decision": "Instalar Flutter (clone stable em ../flutter) e Rust (rustup) via shell",
+      "reason": "Usuário autorizou. Xcode completo só via App Store, pendente."
+    },
+    {
+      "date": "2026-11-05",
+      "topic": "Leitura de hardware no MVP",
+      "decision": "Usar Process.run (sysctl/ioreg/df/sw_vers) em vez de plugin nativo nesta etapa",
+      "reason": "Zero dependências, rápido de validar; MethodChannels nativos entram quando necessário (Windows/Android)"
+    }
+  ],
+  "progressLog": [
+    {
+      "date": "2026-11-05T08:35",
+      "phase": "Planning",
+      "done": [
+        "Pesquisa nome MultiBench (conflito) e BMyBench (livre)",
+        "Definição MVP + MVP+ + V1.1",
+        "Criação de BMyBench_MVP_Planning.md"
+      ],
+      "next": [
+        "Criar estrutura",
+        "journal.json",
+        "pubspec + main.dart"
+      ]
+    },
+    {
+      "date": "2026-11-05T~09:00",
+      "phase": "Fase 0 - Fundação",
+      "done": [
+        "Rust 1.99.1 instalado (rustup)",
+        "Flutter 3.47.9 stable clonado em ../flutter",
+        "flutter create gerado para macos/windows/linux/android",
+        "main.dart com 4 abas + AnimatedSwitcher",
+        "AppTheme adaptativo touch/desktop",
+        "PlatformDetector (OS + touch com cache async + MethodChannel bemybench/platform)",
+        "flutter pub get OK"
+      ],
+      "next": [
+        "Implementar bateria real",
+        "sensores"
+      ]
+    },
+    {
+      "date": "2026-11-05T~09:20",
+      "phase": "Fase 1 - Bateria",
+      "done": [
+        "BatteryService com parsing de ioreg -rn AppleSmartBattery (macOS)",
+        "BatteryInfo com health = max/design, status, tensão, ciclos",
+        "BatteryScreen ligada ao serviço: %, saúde colorida (verde/laranja/vermelho), ciclos, detalhes",
+        "tool/check_battery.dart valida leitura real",
+        "test/widget_test.dart atualizado e passando",
+        "flutter analyze: 0 erros (apenas infos de const)"
+      ],
+      "verified": {
+        "batteryProbe": {
+          "nivel": "72%",
+          "saude": "94.7%",
+          "ciclos": 70,
+          "design": "4629 mAh",
+          "max": "4382 mAh",
+          "cargaAtual": "3014 mAh",
+          "tensao": "12.00 V",
+          "status": "Descarregando"
+        }
+      },
+      "blocker": "flutter build macos falha: 'Xcode not installed'. Necessário instalar Xcode via App Store para rodar o app no Mac."
+    },
+    {
+      "date": "2026-11-05T09:30",
+      "phase": "Build macOS",
+      "done": [
+        "Usuário instalou Xcode 27.2 + rodou xcode-select/xcodebuild -runFirstLaunch",
+        "flutter build macos falhou em ~/Documents com 'disk I/O error' no build.db",
+        "Diagnóstico: macOS 27 protege a pasta Documents (TCC) e o XCBuildService não escreve o build.db lá",
+        "Build em /private/var/.../T/bmb_build_test funcionou: '✓ Built bemybench.app'",
+        "App executado com 'open' e processo 'bemybench' confirmado rodando"
+      ],
+      "verified": {
+        "buildOk": true,
+        "appRunning": true,
+        "workaround": "Compilar fora de ~/Documents (ex.: ~/Developer/BeMyBench)"
+      },
+      "blocker": "Projeto precisa sair de ~/Documents para builds normais funcionarem"
+    },
+    {
+      "date": "2026-11-05T09:45",
+      "phase": "Relocação + build estável",
+      "done": [
+        "Projeto movido para $HOME/repos/BeMyBench (fora de ~/Documents e sem iCloud)",
+        "flutter build macos --debug OK no novo local",
+        "App relançado a partir de ~/repos (PID confirmado)",
+        "Planejamento movido para docs/BMyBench_MVP_Planning.md"
+      ],
+      "verified": {
+        "buildOk": true,
+        "appRunning": true,
+        "location": "$HOME/repos/BeMyBench"
+      }
+    }
+  ],
+  "roadmap": {
+    "fase0": "CONCLUÍDA - projeto Flutter, tema touch/desktop, navegação, 4 plataformas geradas",
+    "fase1": "EM ANDAMENTO - System Info (macOS real), Bateria (macOS real); faltam Sensores e Storage breakdown",
+    "fase2": "Benchmark leve: CPU, Memória, Disco, GPU FPS simples (Rust)",
+    "fase3": "MVP+: RAM single/dual informativo, Saúde SSD leitura, Escaneador temp, Verificador updates",
+    "v1_1": "Performance Aid: diagnóstico completo, cleaner seguro, updater, FurMark, relatório"
+  },
+  "todo": [
+    "Instalar CocoaPods (sudo gem install cocoapods) quando houver plugins nativos",
+    "Aceitar licenças Android (flutter doctor --android-licenses) para gerar APK",
+    "Implementar BatteryService para Windows/Linux/Android",
+    "Implementar Sensores (CPU/RAM em tempo real + temperatura quando possível)",
+    "Implementar System Info de GPU (system_profiler no macOS)",
+    "Ligar Rust (flutter_rust_bridge) para benchmarks CPU/Memória/Disco",
+    "Storage breakdown (df -h por volume no macOS)",
+    "Corrigir infos de lint (const) e adicionar lints mais estritos"
+  ],
+  "openQuestions": [
+    "Nome de display final (BMyBench vs Be My Bench) para ícone/splash",
+    "Distribuição: site direto vs lojas (impacta cleaner/updater)",
+    "Como medir temperatura em Apple Silicon (IOHIDEventSystemClient é o caminho, mas requer código nativo)"
+  ],
+  "commands": {
+    "flutter": "$HOME/Documents/Default Project/flutter/bin/flutter",
+    "runMac": "cd ~/repos/BeMyBench && $HOME/Documents/Default Project/flutter/bin/flutter run -d macos",
+    "buildMac": "cd ~/repos/BeMyBench && $HOME/Documents/Default Project/flutter/bin/flutter build macos --debug",
+    "analyze": "cd ~/repos/BeMyBench && $HOME/Documents/Default Project/flutter/bin/flutter analyze",
+    "test": "cd ~/repos/BeMyBench && $HOME/Documents/Default Project/flutter/bin/flutter test",
+    "batteryProbe": "cd ~/repos/BeMyBench && $HOME/Documents/Default Project/flutter/bin/dart run tool/check_battery.dart",
+    "rust": "~/.cargo/bin/cargo"
+  }
+}

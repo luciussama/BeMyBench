@@ -1,0 +1,12 @@
+[package]
+name = "bemybench_core"
+version = "0.1.0"
+edition = "2021"
+description = "BMyBench benchmark core (CPU/Memory/Disk) - score próprio, cross-platform"
+
+[lib]
+name = "bemybench_core"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Futuro: flutter_rust_bridge, serde (JSON p/ UI), rayon (multi-core)

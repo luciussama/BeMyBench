@@ -21,6 +21,7 @@ class TopNav extends StatelessWidget {
     Icons.battery_std,
     Icons.speed,
     Icons.whatshot,
+    Icons.history,
   ];
 
   @override

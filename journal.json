@@ -6,7 +6,7 @@
     "created": "2026-11-05",
     "owner": "sergio",
     "workingDir": "$HOME/repos/BeMyBench",
-    "status": "v1 marcada (tag + release), protecao de branch na main; fluxo de trabalho por iteracao documentado",
+    "status": "iter/v2: storage breakdown + historico de benchmarks (auto-save)",
     "goal": "Ferramenta de diagnóstico de hardware moderno, cross-platform (macOS, Windows, Linux, Android), com diagnóstico + benchmark + saúde de bateria + auxílio de desempenho.",
     "stack": {
       "ui": "Flutter 3.47.9 / Dart 3.13.7 (instalado em ../flutter)",
@@ -546,6 +546,25 @@
         "gitTag": "v1",
         "branchProtection": true
       }
+    },
+    {
+      "date": "2026-11-05T19:10",
+      "phase": "Iteracao 2 - Storage + Historico",
+      "done": [
+        "StoragePanel: uso de cada volume (df -kP), barras por volume, destaque para >85%, nota sobre APFS compartilhar / e /System/Volumes/Data",
+        "StorageService.parseDf() com filtros de pseudo-filesystems; testes de parsing",
+        "BenchRecord/BenchHistoryStore: historico local em JSON (diretorio de dados do app; substituicao atomica; tolerante a corrupcao)",
+        "Auto-save de benchmarks: _runAll grava um registro por execucao (CPU/RAM/disco/GPU/1% low)",
+        "HistoryScreen (aba Historico): grafico de score total ao longo do tempo, tiles de melhor/ultimo/variacao/execucoes, lista de execucoes e botao de apagar com confirmacao",
+        "Aba Historico na navegacao (TopNav e NavigationBar)",
+        "Testes: storage_test (2), history_test (6), widget_test com a aba Historico — 12/12 passando",
+        "Base de dados de persistencia: ~/Library/Application Support/BeMyBench/history.json (macOS)"
+      ],
+      "verified": {
+        "flutterAnalyze": "No issues found!",
+        "unitTests": "12/12"
+      },
+      "decision": "Historico salvo localmente sem plugins; escrita atomica e leitura tolerante a corrupcao; nada sai da maquina"
     }
   ],
   "roadmap": {

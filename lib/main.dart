@@ -6,6 +6,7 @@ import 'core/widgets/top_nav.dart';
 import 'features/battery/battery_screen.dart';
 import 'features/benchmark/benchmark_screen.dart';
 import 'features/hardware/hardware_screen.dart';
+import 'features/history/history_screen.dart';
 import 'features/sensors/sensors_screen.dart';
 import 'features/stress/stress_screen.dart';
 
@@ -42,7 +43,7 @@ class _HomeShell extends StatefulWidget {
 class _HomeShellState extends State<_HomeShell> {
   int _index = 0;
 
-  static const _titles = ['Hardware', 'Sensores', 'Bateria', 'Benchmark', 'Estresse'];
+  static const _titles = ['Hardware', 'Sensores', 'Bateria', 'Benchmark', 'Estresse', 'Histórico'];
   static const _wideBreakpoint = 860.0;
 
   void _select(int i) => setState(() => _index = i);
@@ -58,6 +59,7 @@ class _HomeShellState extends State<_HomeShell> {
       const BatteryScreen(),
       const BenchmarkScreen(),
       const StressScreen(),
+      const HistoryScreen(),
     ];
 
     final body = AnimatedSwitcher(
@@ -90,6 +92,7 @@ class _HomeShellState extends State<_HomeShell> {
           NavigationDestination(icon: Icon(Icons.battery_std), label: 'Bateria'),
           NavigationDestination(icon: Icon(Icons.speed), label: 'Benchmark'),
           NavigationDestination(icon: Icon(Icons.whatshot), label: 'Estresse'),
+          NavigationDestination(icon: Icon(Icons.history), label: 'Histórico'),
         ],
       ),
     );

@@ -69,10 +69,6 @@ class NativeCore {
     list.add('rust/target/release/$name');
     list.add('rust/target/debug/$name');
 
-    if (Platform.isMacOS) {
-      // caminho absoluto do projeto (apenas conveniência de dev)
-      list.add('$HOME/repos/BeMyBench/rust/target/release/$name');
-    }
     return list;
   }
 

@@ -2,17 +2,21 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
-/// Dispositivo de referência (dados públicos aproximados).
+/// Dispositivo de referência com scores públicos de desempenho (aproximados).
+///
+/// Os valores foram compilados de rankings públicos; as marcas pertencem aos
+/// seus respectivos titulares e o BMyBench não é afiliado a eles. Uso
+/// factual/nominal, apenas para comparação. Fontes e marcas no JSON de dados.
 class ReferenceDevice {
   final String name;
   final String vendor;
   final String segment;
   final int year;
   final int cores;
-  final double cb23Single;
-  final double cb23Multi;
-  final double gb6Single;
-  final double gb6Multi;
+  final double cpuRefSingle;
+  final double cpuRefMulti;
+  final double computeRefSingle;
+  final double computeRefMulti;
 
   const ReferenceDevice({
     required this.name,
@@ -20,30 +24,30 @@ class ReferenceDevice {
     required this.segment,
     required this.year,
     required this.cores,
-    required this.cb23Single,
-    required this.cb23Multi,
-    required this.gb6Single,
-    required this.gb6Multi,
+    required this.cpuRefSingle,
+    required this.cpuRefMulti,
+    required this.computeRefSingle,
+    required this.computeRefMulti,
   });
 }
 
 class ReferenceData {
   final double anchorBmbSingle;
   final double anchorBmbMulti;
-  final double anchorCb23Single;
-  final double anchorCb23Multi;
-  final double anchorGb6Single;
-  final double anchorGb6Multi;
+  final double anchorCpuRefSingle;
+  final double anchorCpuRefMulti;
+  final double anchorComputeRefSingle;
+  final double anchorComputeRefMulti;
   final List<ReferenceDevice> devices;
   final String disclaimer;
 
   const ReferenceData({
     required this.anchorBmbSingle,
     required this.anchorBmbMulti,
-    required this.anchorCb23Single,
-    required this.anchorCb23Multi,
-    required this.anchorGb6Single,
-    required this.anchorGb6Multi,
+    required this.anchorCpuRefSingle,
+    required this.anchorCpuRefMulti,
+    required this.anchorComputeRefSingle,
+    required this.anchorComputeRefMulti,
     required this.devices,
     required this.disclaimer,
   });
@@ -67,22 +71,23 @@ class ReferenceData {
             segment: d['segment'] as String,
             year: (d['year'] as num).toInt(),
             cores: (d['cores'] as num).toInt(),
-            cb23Single: (d['cb23_single'] as num).toDouble(),
-            cb23Multi: (d['cb23_multi'] as num).toDouble(),
-            gb6Single: (d['gb6_single'] as num).toDouble(),
-            gb6Multi: (d['gb6_multi'] as num).toDouble(),
+            cpuRefSingle: (d['cpu_ref_single'] as num).toDouble(),
+            cpuRefMulti: (d['cpu_ref_multi'] as num).toDouble(),
+            computeRefSingle: (d['compute_ref_single'] as num).toDouble(),
+            computeRefMulti: (d['compute_ref_multi'] as num).toDouble(),
           ),
         )
         .toList()
-      ..sort((a, b) => b.cb23Multi.compareTo(a.cb23Multi));
+      ..sort((a, b) => b.cpuRefMulti.compareTo(a.cpuRefMulti));
 
     final data = ReferenceData(
       anchorBmbSingle: (anchor['bmb_single_mops'] as num).toDouble(),
       anchorBmbMulti: (anchor['bmb_multi_mops'] as num).toDouble(),
-      anchorCb23Single: (anchor['cb23_single'] as num).toDouble(),
-      anchorCb23Multi: (anchor['cb23_multi'] as num).toDouble(),
-      anchorGb6Single: (anchor['gb6_single'] as num).toDouble(),
-      anchorGb6Multi: (anchor['gb6_multi'] as num).toDouble(),
+      anchorCpuRefSingle: (anchor['cpu_ref_single'] as num).toDouble(),
+      anchorCpuRefMulti: (anchor['cpu_ref_multi'] as num).toDouble(),
+      anchorComputeRefSingle:
+          (anchor['compute_ref_single'] as num).toDouble(),
+      anchorComputeRefMulti: (anchor['compute_ref_multi'] as num).toDouble(),
       devices: list,
       disclaimer: json['disclaimer'] as String? ?? '',
     );
@@ -90,25 +95,26 @@ class ReferenceData {
     return data;
   }
 
-  /// Converte o score multi-core do BMyBench para um equivalente aproximado
-  /// de Cinebench R23 multi, usando calibração linear no dispositivo âncora.
-  double estimateCb23Multi(double bmbMulti) =>
-      anchorCb23Multi * (bmbMulti / anchorBmbMulti);
+  /// Converte o score multi-core do BMyBench para o equivalente aproximado
+  /// das suítes públicas de referência de CPU, usando calibração linear.
+  double estimateCpuRefMulti(double bmbMulti) =>
+      anchorCpuRefMulti * (bmbMulti / anchorBmbMulti);
 
-  double estimateCb23Single(double bmbSingle) =>
-      anchorCb23Single * (bmbSingle / anchorBmbSingle);
+  double estimateCpuRefSingle(double bmbSingle) =>
+      anchorCpuRefSingle * (bmbSingle / anchorBmbSingle);
 
-  double estimateGb6Multi(double bmbMulti) =>
-      anchorGb6Multi * (bmbMulti / anchorBmbMulti);
+  double estimateComputeRefMulti(double bmbMulti) =>
+      anchorComputeRefMulti * (bmbMulti / anchorBmbMulti);
 
-  double estimateGb6Single(double bmbSingle) =>
-      anchorGb6Single * (bmbSingle / anchorBmbSingle);
+  double estimateComputeRefSingle(double bmbSingle) =>
+      anchorComputeRefSingle * (bmbSingle / anchorBmbSingle);
 
   /// Percentual de dispositivos de referência abaixo do score informado.
   double percentile(double bmbMulti, {String vendor = 'Todos'}) {
     final pool = _filter(vendor);
     if (pool.isEmpty) return 0;
-    final below = pool.where((d) => d.cb23Multi < estimateCb23Multi(bmbMulti)).length;
+    final below =
+        pool.where((d) => d.cpuRefMulti < estimateCpuRefMulti(bmbMulti)).length;
     return below / pool.length * 100;
   }
 
@@ -116,9 +122,11 @@ class ReferenceData {
   ReferenceDevice? nearest(double bmbMulti, {String vendor = 'Todos'}) {
     final pool = _filter(vendor);
     if (pool.isEmpty) return null;
-    final target = estimateCb23Multi(bmbMulti);
+    final target = estimateCpuRefMulti(bmbMulti);
     return pool.reduce(
-      (a, b) => (a.cb23Multi - target).abs() <= (b.cb23Multi - target).abs() ? a : b,
+      (a, b) => (a.cpuRefMulti - target).abs() <= (b.cpuRefMulti - target).abs()
+          ? a
+          : b,
     );
   }
 

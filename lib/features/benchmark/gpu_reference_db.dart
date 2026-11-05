@@ -2,15 +2,19 @@ import 'dart:convert';
 
 import 'package:flutter/services.dart';
 
-/// GPU de referência com scores públicos aproximados.
+/// GPU de referência com scores públicos de desempenho (aproximados).
+///
+/// Os valores foram compilados de rankings públicos; as marcas pertencem aos
+/// seus respectivos titulares e o BMyBench não é afiliado a eles. Uso
+/// factual/nominal, apenas para comparação. Fontes e marcas no JSON de dados.
 class GpuReferenceDevice {
   final String name;
   final String vendor;
   final String segment;
   final int year;
   final int gpuCores;
-  final double timeSpy;
-  final double gb6Metal;
+  final double gpuRefRaster;
+  final double gpuRefCompute;
 
   const GpuReferenceDevice({
     required this.name,
@@ -18,23 +22,23 @@ class GpuReferenceDevice {
     required this.segment,
     required this.year,
     required this.gpuCores,
-    required this.timeSpy,
-    required this.gb6Metal,
+    required this.gpuRefRaster,
+    required this.gpuRefCompute,
   });
 }
 
 /// Base de referência de GPU.
 ///
-/// O BMyBench mede frames/s em dois testes: compute e render. O Time Spy
-/// (rasterização) é estimado a partir do teste de render; o Geekbench 6
-/// Metal (compute) a partir do teste de compute. A conversão é linear,
+/// O BMyBench mede frames/s em dois testes: compute e render. O score de
+/// rasterização de referência é estimado a partir do teste de render; o
+/// score de compute a partir do teste de compute. A conversão é linear,
 /// calibrada no dispositivo âncora.
 class GpuReferenceData {
   final String anchorDevice;
   final double anchorComputeFps;
   final double anchorRenderFps;
-  final double anchorTimeSpy;
-  final double anchorGb6Metal;
+  final double anchorRefRaster;
+  final double anchorRefCompute;
   final List<GpuReferenceDevice> devices;
   final String disclaimer;
 
@@ -42,8 +46,8 @@ class GpuReferenceData {
     required this.anchorDevice,
     required this.anchorComputeFps,
     required this.anchorRenderFps,
-    required this.anchorTimeSpy,
-    required this.anchorGb6Metal,
+    required this.anchorRefRaster,
+    required this.anchorRefCompute,
     required this.devices,
     required this.disclaimer,
   });
@@ -67,12 +71,12 @@ class GpuReferenceData {
             segment: d['segment'] as String,
             year: (d['year'] as num).toInt(),
             gpuCores: (d['gpu_cores'] as num).toInt(),
-            timeSpy: (d['time_spy'] as num).toDouble(),
-            gb6Metal: (d['gb6_metal'] as num).toDouble(),
+            gpuRefRaster: (d['gpu_ref_raster'] as num).toDouble(),
+            gpuRefCompute: (d['gpu_ref_compute'] as num).toDouble(),
           ),
         )
         .toList()
-      ..sort((a, b) => b.timeSpy.compareTo(a.timeSpy));
+      ..sort((a, b) => b.gpuRefRaster.compareTo(a.gpuRefRaster));
 
     final computeFps = (anchor['compute_fps'] ?? anchor['bmb_fps']) as num;
 
@@ -81,8 +85,8 @@ class GpuReferenceData {
       anchorComputeFps: computeFps.toDouble(),
       anchorRenderFps:
           (anchor['render_fps'] as num?)?.toDouble() ?? computeFps.toDouble(),
-      anchorTimeSpy: (anchor['time_spy_graphics'] as num).toDouble(),
-      anchorGb6Metal: (anchor['gb6_metal'] as num).toDouble(),
+      anchorRefRaster: (anchor['public_raster'] as num).toDouble(),
+      anchorRefCompute: (anchor['public_compute'] as num).toDouble(),
       devices: list,
       disclaimer: json['disclaimer'] as String? ?? '',
     );
@@ -90,31 +94,35 @@ class GpuReferenceData {
     return data;
   }
 
-  /// Time Spy estimado a partir do teste de renderização.
-  double timeSpyFromRender(double fps) =>
-      anchorTimeSpy * (fps / anchorRenderFps);
+  /// Score gráfico de referência estimado a partir do teste de render.
+  double rasterRefFromRender(double fps) =>
+      anchorRefRaster * (fps / anchorRenderFps);
 
-  /// Time Spy estimado a partir do teste de compute (fallback).
-  double timeSpyFromCompute(double fps) =>
-      anchorTimeSpy * (fps / anchorComputeFps);
+  /// Score gráfico de referência estimado a partir do compute (fallback).
+  double rasterRefFromCompute(double fps) =>
+      anchorRefRaster * (fps / anchorComputeFps);
 
-  /// Geekbench 6 Metal estimado a partir do teste de compute.
-  double gb6FromCompute(double fps) => anchorGb6Metal * (fps / anchorComputeFps);
+  /// Score de compute de referência estimado a partir do teste de compute.
+  double computeRefFromCompute(double fps) =>
+      anchorRefCompute * (fps / anchorComputeFps);
 
-  /// Percentual de GPUs de referência abaixo do Time Spy informado.
-  double percentileForTimeSpy(double timeSpy, {String vendor = 'Todos'}) {
+  /// Percentual de GPUs de referência abaixo do score informado.
+  double percentileForRef(double refScore, {String vendor = 'Todos'}) {
     final pool = _filter(vendor);
     if (pool.isEmpty) return 0;
-    final below = pool.where((d) => d.timeSpy < timeSpy).length;
+    final below = pool.where((d) => d.gpuRefRaster < refScore).length;
     return below / pool.length * 100;
   }
 
-  GpuReferenceDevice? nearestForTimeSpy(double timeSpy, {String vendor = 'Todos'}) {
+  GpuReferenceDevice? nearestForRef(double refScore,
+      {String vendor = 'Todos'}) {
     final pool = _filter(vendor);
     if (pool.isEmpty) return null;
     return pool.reduce(
-      (a, b) =>
-          (a.timeSpy - timeSpy).abs() <= (b.timeSpy - timeSpy).abs() ? a : b,
+      (a, b) => (a.gpuRefRaster - refScore).abs() <=
+              (b.gpuRefRaster - refScore).abs()
+          ? a
+          : b,
     );
   }
 

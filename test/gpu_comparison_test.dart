@@ -57,11 +57,11 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('Seu dispositivo'), findsOneWidget);
-    expect(find.textContaining('3DMark Time Spy'), findsWidgets);
-    expect(find.textContaining('Geekbench 6 Metal'), findsWidgets);
+    expect(find.textContaining('GPU raster (ref.)'), findsWidgets);
+    expect(find.textContaining('Compute (ref.)'), findsWidgets);
     expect(find.textContaining('GPU render (jogos)'), findsOneWidget);
+    expect(find.textContaining('Compute (BMyBench)'), findsOneWidget);
     expect(find.textContaining('1% low'), findsOneWidget);
-    expect(find.textContaining('GPU compute'), findsOneWidget);
     expect(find.textContaining('Equivalente mais próximo'), findsOneWidget);
   });
 }

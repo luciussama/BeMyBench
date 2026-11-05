@@ -5,10 +5,10 @@ import '../../core/widgets/dashboard.dart';
 import 'gpu_benchmark.dart';
 import 'gpu_reference_db.dart';
 
-/// Comparação do resultado de GPU com 3DMark Time Spy / Geekbench 6 Metal.
+/// Comparação do resultado de GPU com os rankings públicos de referência.
 ///
-/// O Time Spy é estimado preferencialmente pelo teste de renderização
-/// (rasterização/fill rate); o Geekbench 6 Metal pelo teste de compute.
+/// O score de rasterização é estimado preferencialmente pelo teste de
+/// renderização; o de compute, pelo teste de compute.
 class GpuComparisonPanel extends StatefulWidget {
   final GpuBenchResult? compute;
   final GpuBenchResult? render;
@@ -45,21 +45,21 @@ class _GpuComparisonPanelState extends State<GpuComparisonPanel> {
     final compute = widget.compute;
     final render = widget.render;
 
-    final estTimeSpy = render != null
-        ? db.timeSpyFromRender(render.fps)
-        : db.timeSpyFromCompute(compute!.fps);
-    final estGb6 = compute == null ? null : db.gb6FromCompute(compute.fps);
+    final estRaster = render != null
+        ? db.rasterRefFromRender(render.fps)
+        : db.rasterRefFromCompute(compute!.fps);
+    final estCompute = compute == null ? null : db.computeRefFromCompute(compute.fps);
     final percentile =
-        db.percentileForTimeSpy(estTimeSpy, vendor: _vendor);
-    final nearest = db.nearestForTimeSpy(estTimeSpy, vendor: _vendor);
+        db.percentileForRef(estRaster, vendor: _vendor);
+    final nearest = db.nearestForRef(estRaster, vendor: _vendor);
 
     final pool = db.devicesFor(_vendor);
     final shown = pool.take(9).toList();
     final maxValue = shown.isEmpty
-        ? estTimeSpy
+        ? estRaster
         : shown
-            .map((d) => d.timeSpy)
-            .fold<double>(estTimeSpy, (a, b) => a > b ? a : b);
+            .map((d) => d.gpuRefRaster)
+            .fold<double>(estRaster, (a, b) => a > b ? a : b);
 
     return AppPanel(
       child: Column(
@@ -92,14 +92,14 @@ class _GpuComparisonPanelState extends State<GpuComparisonPanel> {
             runSpacing: 10,
             children: [
               _EstimatePill(
-                label: '3DMark Time Spy',
-                value: _fmt(estTimeSpy),
+                label: 'GPU raster (ref.)',
+                value: _fmt(estRaster),
                 color: AppColors.violet,
               ),
-              if (estGb6 != null)
+              if (estCompute != null)
                 _EstimatePill(
-                  label: 'Geekbench 6 Metal',
-                  value: _fmt(estGb6),
+                  label: 'Compute (ref.)',
+                  value: _fmt(estCompute),
                   color: AppColors.accent,
                 ),
               if (render != null && render.hasFrameStats)
@@ -116,7 +116,7 @@ class _GpuComparisonPanelState extends State<GpuComparisonPanel> {
                 ),
               if (compute != null)
                 _EstimatePill(
-                  label: 'GPU compute',
+                  label: 'Compute (BMyBench)',
                   value: '${compute.fps.toStringAsFixed(1)} fps',
                   color: AppColors.accent,
                 ),
@@ -140,7 +140,7 @@ class _GpuComparisonPanelState extends State<GpuComparisonPanel> {
               ),
               child: Text(
                 'Equivalente mais próximo: ${nearest.name} '
-                '(Time Spy Graphics de referência: ${_fmt(nearest.timeSpy)})',
+                '(score raster de referência: ${_fmt(nearest.gpuRefRaster)})',
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
@@ -164,18 +164,18 @@ class _GpuComparisonPanelState extends State<GpuComparisonPanel> {
           for (final d in shown)
             _RankRow(
               name: d.name,
-              value: d.timeSpy,
+              value: d.gpuRefRaster,
               maxValue: maxValue,
-              label: _fmt(d.timeSpy),
+              label: _fmt(d.gpuRefRaster),
               color: _vendorColor(d.vendor),
             ),
           _RankRow(
             name: render != null
                 ? 'Seu dispositivo (BMyBench render)'
                 : 'Seu dispositivo (BMyBench compute)',
-            value: estTimeSpy,
+            value: estRaster,
             maxValue: maxValue,
-            label: _fmt(estTimeSpy),
+            label: _fmt(estRaster),
             color: AppColors.violet,
             highlight: true,
           ),
@@ -184,7 +184,7 @@ class _GpuComparisonPanelState extends State<GpuComparisonPanel> {
             const Padding(
               padding: EdgeInsets.only(bottom: 8),
               child: Text(
-                'Time Spy estimado pelo teste de compute. Rode o teste de '
+                'Score de raster estimado pelo teste de compute. Rode o teste de '
                 'renderização para uma comparação mais fiel a jogos.',
                 style: TextStyle(
                   color: AppColors.orange,
@@ -195,8 +195,8 @@ class _GpuComparisonPanelState extends State<GpuComparisonPanel> {
             ),
           Text(
             '${db.disclaimer}\nA conversão é linear e calibrada em '
-            '${db.anchorDevice}. O Time Spy usa o teste de renderização; '
-            'o Geekbench 6 Metal usa o de compute. Trate como estimativa, '
+            '${db.anchorDevice}. O score de raster usa o teste de renderização; '
+            'o de compute usa o de compute. Trate como estimativa, '
             'não como medida oficial.',
             style: const TextStyle(
               color: AppColors.textMuted,

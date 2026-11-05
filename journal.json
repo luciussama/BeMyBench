@@ -516,6 +516,22 @@
         "Badge: https://github.com/luciussama/BeMyBench/actions/workflows/ci.yml/badge.svg",
         "Sem licenca, por decisao do usuario (repo publico para referencia)"
       ]
+    },
+    {
+      "date": "2026-11-05T17:35",
+      "phase": "Marca e credito",
+      "done": [
+        "Documentacao (README, docs) sem marcas de terceiros; referencias genericas as suítes de referencia",
+        "Rotulos da UI agora genericos (CPU multi/single e Compute, GPU raster e GPU compute), sem replicar a identidade das suítes",
+        "Arquivos de dados renomeados (chaves cpu_ref_*, compute_ref_*, gpu_ref_raster/compute, public_*)",
+        "Crédito preservado: disclaimer dos arquivos de dados nomeia as fontes publicas de desempenho e deixa claro que o BMyBench nao executa nem e afiliado a nenhuma suíte; os numeros sao estimativas, nao resultados oficiais",
+        "Integracao real (integration_test) segue passando; 4/4 testes; flutter analyze limpo"
+      ],
+      "verified": {
+        "flutterAnalyze": "No issues found!",
+        "unitTests": "4/4"
+      },
+      "decision": "Manter os nomes apenas como credito factual nos disclaimers (uso nominal aceito); nao usar nenhuma marca como identidade ou como se fosse o BMyBench"
     }
   ],
   "roadmap": {

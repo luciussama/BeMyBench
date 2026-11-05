@@ -29,7 +29,7 @@ void main() {
 
     expect(find.text('Comparação com equipamentos similares'), findsOneWidget);
     expect(find.textContaining('Seu dispositivo'), findsOneWidget);
-    expect(find.textContaining('Cinebench R23 multi'), findsWidgets);
+    expect(find.textContaining('CPU multi (ref.)'), findsWidgets);
     expect(find.textContaining('Equivalente mais próximo'), findsOneWidget);
   });
 }

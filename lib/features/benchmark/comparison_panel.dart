@@ -6,7 +6,8 @@ import 'benchmark_models.dart';
 import 'reference_db.dart';
 
 /// Painel de comparação: converte o score BMyBench em equivalentes
-/// aproximados de Cinebench R23 / Geekbench 6 e mostra o ranking.
+/// aproximados das suítes públicas de referência (crédito no JSON de dados)
+/// e mostra o ranking.
 class ComparisonPanel extends StatefulWidget {
   final CpuBenchResult cpu;
 
@@ -40,9 +41,9 @@ class _ComparisonPanelState extends State<ComparisonPanel> {
 
   Widget _buildPanel(ReferenceData db) {
     final cpu = widget.cpu;
-    final estCbMulti = db.estimateCb23Multi(cpu.multiMops);
-    final estCbSingle = db.estimateCb23Single(cpu.singleMops);
-    final estGbMulti = db.estimateGb6Multi(cpu.multiMops);
+    final estCpuMulti = db.estimateCpuRefMulti(cpu.multiMops);
+    final estCpuSingle = db.estimateCpuRefSingle(cpu.singleMops);
+    final estComputeMulti = db.estimateComputeRefMulti(cpu.multiMops);
     final percentile = db.percentile(cpu.multiMops, vendor: _vendor);
     final nearest = db.nearest(cpu.multiMops, vendor: _vendor);
 
@@ -50,8 +51,8 @@ class _ComparisonPanelState extends State<ComparisonPanel> {
     // Mostra os 8 primeiros e garante o "você" na lista.
     final shown = pool.take(9).toList();
     final maxValue = shown.isEmpty
-        ? estCbMulti
-        : shown.map((d) => d.cb23Multi).fold<double>(estCbMulti, (a, b) => a > b ? a : b);
+        ? estCpuMulti
+        : shown.map((d) => d.cpuRefMulti).fold<double>(estCpuMulti, (a, b) => a > b ? a : b);
 
     return AppPanel(
       child: Column(
@@ -85,18 +86,18 @@ class _ComparisonPanelState extends State<ComparisonPanel> {
             runSpacing: 10,
             children: [
               _EstimatePill(
-                label: 'Cinebench R23 multi',
-                value: _fmt(estCbMulti),
+                label: 'CPU multi (ref.)',
+                value: _fmt(estCpuMulti),
                 color: AppColors.accent,
               ),
               _EstimatePill(
-                label: 'Cinebench R23 single',
-                value: _fmt(estCbSingle),
+                label: 'CPU single (ref.)',
+                value: _fmt(estCpuSingle),
                 color: AppColors.accent,
               ),
               _EstimatePill(
-                label: 'Geekbench 6 multi',
-                value: _fmt(estGbMulti),
+                label: 'Compute multi (ref.)',
+                value: _fmt(estComputeMulti),
                 color: AppColors.violet,
               ),
               _EstimatePill(
@@ -119,7 +120,7 @@ class _ComparisonPanelState extends State<ComparisonPanel> {
               ),
               child: Text(
                 'Equivalente mais próximo: ${nearest.name} '
-                '(Cinebench R23 multi de referência: ${_fmt(nearest.cb23Multi)})',
+                '(score CPU de referência: ${_fmt(nearest.cpuRefMulti)})',
                 style: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
@@ -147,16 +148,16 @@ class _ComparisonPanelState extends State<ComparisonPanel> {
           for (final d in shown)
             _RankRow(
               name: d.name,
-              value: d.cb23Multi,
+              value: d.cpuRefMulti,
               maxValue: maxValue,
-              label: _fmt(d.cb23Multi),
+              label: _fmt(d.cpuRefMulti),
               color: _vendorColor(d.vendor),
             ),
           _RankRow(
             name: 'Seu dispositivo (BMyBench)',
-            value: estCbMulti,
+            value: estCpuMulti,
             maxValue: maxValue,
-            label: _fmt(estCbMulti),
+            label: _fmt(estCpuMulti),
             color: AppColors.accent,
             highlight: true,
           ),

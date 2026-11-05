@@ -6,16 +6,22 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.."
 PROJECT_ROOT="$(pwd)"
-FLUTTER_BIN="${FLUTTER_BIN:-$HOME/Documents/Default Project/flutter/bin/flutter}"
+FLUTTER_BIN="${FLUTTER_BIN:-$PROJECT_ROOT/../flutter/bin/flutter}"
 CARGO_BIN="${CARGO_BIN:-$HOME/.cargo/bin/cargo}"
 MODE="${1:-debug}"
-
-echo "==> [1/4] Rust (release)"
-cd rust
-"$CARGO_BIN" build --release
-cd "$PROJECT_ROOT"
-
 DYLIB="rust/target/release/libbemybench_core.dylib"
+
+if command -v "$CARGO_BIN" >/dev/null 2>&1 || [[ -x "$CARGO_BIN" ]]; then
+  echo "==> [1/4] Rust (release)"
+  cd rust
+  "$CARGO_BIN" build --release
+  cd "$PROJECT_ROOT"
+elif [[ -f "$DYLIB" ]]; then
+  echo "==> [1/4] Usando dylib Rust já compilada: $DYLIB"
+else
+  echo "Erro: cargo não encontrado e dylib ausente: $DYLIB"; exit 1
+fi
+
 [[ -f "$DYLIB" ]] || { echo "dylib não encontrada: $DYLIB"; exit 1; }
 
 echo "==> [2/4] Flutter build macOS ($MODE)"

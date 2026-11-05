@@ -490,6 +490,22 @@
         "build": "package_macos.sh OK, app aberto com a aba Estresse"
       },
       "caveat": "O teste roda em passos de 1s via MethodChannel; a GPU e re-aquecida a cada passo (2 frames). Nao ha leitura de temperatura de GPU no macOS sem privilegios; a queda de fps e usada como proxy de throttling."
+    },
+    {
+      "date": "2026-11-05T16:40",
+      "phase": "Publicação",
+      "done": [
+        "Repo publico criado no GitHub: https://github.com/luciussama/BeMyBench (branch main)",
+        "Historico reescrito com git filter-repo: removidos os caminhos locais (prefixo /Users/<user> -> $HOME)",
+        "Artefatos de build Rust (rust/target, 22 arquivos: dylibs/rlibs) removidos do versionamento e adicionados ao .gitignore",
+        ".git encolheu de 2.4MB para 1.1MB; 0 ocorrencias do prefixo pessoal em todo o historico",
+        "Descricao do repo configurada; sem licenca (todos os direitos reservados por ora)"
+      ],
+      "verified": {
+        "publicRepo": true,
+        "historyClean": true,
+        "rustTargetUntracked": true
+      }
     }
   ],
   "roadmap": {

@@ -8,6 +8,7 @@ import '../../core/widgets/dashboard.dart';
 import '../sensors/sensors_service.dart';
 import 'benchmark_models.dart';
 import 'benchmark_runner.dart';
+import 'comparison_panel.dart';
 
 class BenchmarkScreen extends StatefulWidget {
   const BenchmarkScreen({super.key});
@@ -299,7 +300,13 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
         const SizedBox(height: 16),
 
         // ---------------- Resultados detalhados ----------------
-        if (_done > 0) _ResultsPanel(cpu: _cpu, mem: _mem, disk: _disk),
+        if (_done > 0) ...[
+          _ResultsPanel(cpu: _cpu, mem: _mem, disk: _disk),
+          if (_cpu != null) ...[
+            const SizedBox(height: 16),
+            ComparisonPanel(cpu: _cpu!),
+          ],
+        ],
       ],
     );
   }

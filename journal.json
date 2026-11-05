@@ -6,7 +6,7 @@
     "created": "2026-11-05",
     "owner": "sergio",
     "workingDir": "$HOME/repos/BeMyBench",
-    "status": "MVP - Fase 0/1/2 concluídas; UI desktop unificada (componentes de dashboard)",
+    "status": "MVP - Fase 0/1/2 concluídas; comparação com base de referência (Cinebench/Geekbench)",
     "goal": "AIDA64 moderno, cross-platform (macOS, Windows, Linux, Android), com diagnóstico + benchmark + saúde de bateria + auxílio de desempenho.",
     "stack": {
       "ui": "Flutter 3.47.9 / Dart 3.13.7 (instalado em ../flutter)",
@@ -320,6 +320,27 @@
       "verified": {
         "exceptions": 0
       }
+    },
+    {
+      "date": "2026-11-05T12:40",
+      "phase": "Benchmark - Base de comparação",
+      "done": [
+        "assets/data/reference_cpu.json com 27 dispositivos (Apple, Intel, AMD) e scores publicos aproximados de Cinebench R23 e Geekbench 6",
+        "reference_db.dart: carrega o JSON via rootBundle, converte score BMyBench em equivalentes lineares calibrados no dispositivo ancora, calcula percentil e equivalente mais proximo",
+        "comparison_panel.dart: pills de equivalentes (CB23 multi/single, GB6 multi, percentil), filtro por fabricante, ranking com barras e linha destacada do usuario",
+        "Aviso explicito de que os valores sao aproximados e nao oficiais",
+        "Testes: widget_test atualizado + comparison_test; 2/2 passando"
+      ],
+      "verified": {
+        "devices": 27,
+        "estimativasNoMacbook": {
+          "cb23_multi": 24000,
+          "cb23_single": 1900,
+          "gb6_multi": 21000,
+          "percentil": "59%"
+        }
+      },
+      "caveat": "Base curada manualmente com numeros publicos arredondados (2024/2026). Futuro: atualizar via JSON remoto e permitir contribuicoes da comunidade."
     }
   ],
   "roadmap": {
@@ -330,6 +351,7 @@
     "v1_1": "Performance Aid: diagnóstico completo, cleaner seguro, updater, FurMark, relatório"
   },
   "todo": [
+    "Referencia: permitir atualizacao remota da base e incluir GPUs (FurMark/3DMark) quando o bench de GPU existir",
     "Implementar GPU info + FPS simples (Metal)",
     "Storage breakdown (df -h por volume)",
     "BatteryService Windows/Linux/Android",

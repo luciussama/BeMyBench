@@ -569,8 +569,17 @@
     {
       "date": "2026-11-06",
       "phase": "Iteração 3 - Janela 3D/GPU (Metal/Vulkan) + HUD na janela",
-      "decision": "janela flutuante sobre o app com render 3D tipo FurMark, VSync off, combobox Benchmark/Stress, HUD dentro da janela 3D (GPU Name, %, Clock, V-RAM, Temperature, FPS)",
-      "status": "planning"
+      "done": [
+        "macos/Runner/GpuBenchmark.swift: exposto metalDevice e commandQueue; encodeRenderFrame atualizado para aceitar targetTexture opcional no composite pass (render direto em drawable MTKView)",
+        "macos/Runner/MainFlutterWindow.swift: implementado GpuLiveWindowController com NSWindow flutuante independente, MTKView com CAMetalLayer.displaySyncEnabled = false (VSync OFF), render da cena 3D procedural/cubos em tempo real",
+        "HUD nativo sobre a cena 3D: painel translúcido estilizado com nome da GPU, FPS ao vivo, tempo de quadro (ms), VRAM alocada, indicador de VSync OFF e controle de modo (Benchmark 15s / Estresse contínuo)",
+        "bemybench/gpu MethodChannel: adicionados métodos open_3d_window, close_3d_window e is_3d_window_open",
+        "lib/features/benchmark/gpu_benchmark.dart: adicionados open3dWindow, close3dWindow e is3dWindowOpen no GpuBenchmarkService",
+        "lib/features/stress/stress_screen.dart e benchmark_screen.dart: integrados botões para disparar a janela 3D em modo Estresse e Benchmark",
+        "Limpeza de artefatos temporários: removidos os arquivos mock de UI estática com timers simulados"
+      ],
+      "decision": "Janela 3D implementada nativamente em Metal (AppKit + MetalKit) sem travar no VSync; fechável de forma independente sem derrubar o app Flutter",
+      "status": "concluído"
     }
   ],
   "roadmap": {

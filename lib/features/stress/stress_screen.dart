@@ -194,6 +194,48 @@ class _StressScreenState extends State<StressScreen> {
         ),
         const SizedBox(height: 16),
 
+        // Atalho para Janela 3D Nativa (FurMark-like)
+        AppPanel(
+          color: const Color(0xFF111A23),
+          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+          child: Row(
+            children: [
+              const Icon(Icons.open_in_new, color: AppColors.accent, size: 20),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Janela 3D Nativa (FurMark-like)',
+                      style: TextStyle(
+                        color: AppColors.textPrimary,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 13,
+                      ),
+                    ),
+                    SizedBox(height: 2),
+                    Text(
+                      'Abre uma janela Metal flutuante independente com VSync OFF e HUD ao vivo.',
+                      style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                    ),
+                  ],
+                ),
+              ),
+              OutlinedButton.icon(
+                icon: const Icon(Icons.visibility, size: 14, color: AppColors.accent),
+                label: const Text('ABRIR 3D', style: TextStyle(color: AppColors.accent, fontSize: 11, fontWeight: FontWeight.bold)),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppColors.accent),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                ),
+                onPressed: () => _gpu.open3dWindow(mode: 'stress'),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 16),
+
         // Duração
         Wrap(
           spacing: 10,

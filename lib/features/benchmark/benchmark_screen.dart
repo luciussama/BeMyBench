@@ -294,6 +294,14 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
               enabled: !_running && GpuBenchmarkService.isSupported,
               onTap: () => _toggle('gpu_render'),
             ),
+            if (GpuBenchmarkService.isSupported)
+              FeatureChip(
+                label: 'Janela 3D (Ao Vivo)',
+                color: AppColors.orange,
+                selected: false,
+                enabled: !_running,
+                onTap: () => _gpu.open3dWindow(mode: 'benchmark'),
+              ),
           ],
         ),
         const SizedBox(height: 20),

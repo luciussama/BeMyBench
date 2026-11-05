@@ -587,7 +587,10 @@ final class GpuBenchmark {
     return payload
   }
 
-  private func encodeRenderFrame(_ commandBuffer: MTLCommandBuffer, frameIndex: Int) -> Bool {
+  var metalDevice: MTLDevice? { device }
+  var commandQueue: MTLCommandQueue? { queue }
+
+  func encodeRenderFrame(_ commandBuffer: MTLCommandBuffer, frameIndex: Int, targetTexture: MTLTexture? = nil) -> Bool {
     guard let background = backgroundPipeline,
       let scene = scenePipeline,
       let bright = brightPipeline,
@@ -621,7 +624,7 @@ final class GpuBenchmark {
     let brightPass = makePostPass(bloomHalf)
     let blurHPass = makePostPass(bloomBlurA)
     let blurVPass = makePostPass(bloomBlurB)
-    let compositePass = makePostPass(final)
+    let compositePass = makePostPass(targetTexture ?? final)
 
     let viewProjection = makeViewProjection()
     var light = SIMD3<Float>(0.45, 0.85, 0.3)

@@ -177,4 +177,45 @@ class GpuBenchmarkService {
     }
     return GpuBenchResult.fromMap(map);
   }
+
+  /// Abre a janela 3D nativa flutuante (Metal / FurMark-like) com VSync desligado e HUD.
+  ///
+  /// [mode]: 'benchmark' (15s com score final) ou 'stress' (estresse contínuo).
+  Future<bool> open3dWindow({String mode = 'stress'}) async {
+    if (!isSupported) return false;
+    try {
+      final res = await _channel.invokeMethod<bool>('open_3d_window', {'mode': mode});
+      return res ?? false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  /// Fecha a janela 3D nativa.
+  Future<bool> close3dWindow() async {
+    if (!isSupported) return false;
+    try {
+      final res = await _channel.invokeMethod<bool>('close_3d_window');
+      return res ?? false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
+  /// Verifica se a janela 3D nativa está aberta no momento.
+  Future<bool> is3dWindowOpen() async {
+    if (!isSupported) return false;
+    try {
+      final res = await _channel.invokeMethod<bool>('is_3d_window_open');
+      return res ?? false;
+    } on PlatformException {
+      return false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
 }

@@ -1,20 +1,94 @@
 # BMyBench (Be My Bench)
 
-**AIDA64 moderno, cross-platform.** Diagnóstico + Benchmark + Saúde de bateria + (futuro) Auxílio de desempenho.
+**AIDA64 moderno e cross-platform.** Diagnóstico de hardware + benchmark com score próprio + saúde de bateria + (futuro) auxílio de desempenho.
 
-> MVP = somente leitura/medir. V1.1 = agir (limpar, atualizar, estressar).
-> Ver [`../BMyBench_MVP_Planning.md`](../BMyBench_MVP_Planning.md) e [`journal.json`](./journal.json) (diário de contexto).
+> **MVP = ler e medir.** Ações destrutivas (limpar, atualizar, estressar) ficam para a V1.1.
+> Planejamento completo: [`docs/BMyBench_MVP_Planning.md`](docs/BMyBench_MVP_Planning.md)
+> Diário de contexto (decisões, progresso, números medidos): [`journal.json`](journal.json)
 
-## Status
+## Stack
 
-Fase 0 Concluída. Estrutura Flutter gerada para macOS, Windows, Linux e Android.
-Telas Sistema/Sensores/Bateria/Benchmark criadas como stub funcional.
-SystemInfo faz coleta real no macOS via `sysctl`/`df`/`sw_vers`.
+| Camada | Tecnologia |
+|---|---|
+| UI | Flutter 3.47.9 / Dart 3.13.7 |
+| Benchmark core | Rust 1.99.1 (cdylib, C ABI) |
+| Integração | `dart:ffi` puro (sem `flutter_rust_bridge`, sem plugin) |
+| Dados de sistema | `Process.run` (sysctl / ioreg / vm_stat / top / df) |
+
+## Estado atual
+
+| Fase | Status |
+|---|---|
+| 0 — Fundação (4 plataformas, tema touch, navegação) | ✅ |
+| 1 — Sistema (macOS real) | ✅ |
+| 1 — Bateria (macOS real) | ✅ |
+| 1 — Sensores CPU/RAM (macOS/Linux) | ✅ |
+| 2 — Benchmarks CPU/Memória/Disco | ✅ |
+| 2 — GPU info + FPS | ⏳ |
+| 3 — MVP+ (RAM single/dual, saúde SSD, temp, updates) | ⏳ |
+| V1.1 — Cleaner, Updater, FurMark, teste de descarga | ⏳ |
 
 ## Como rodar
 
+Pré-requisitos: Xcode, Flutter SDK e Rust.
+
 ```bash
-cd BeMyBench
-../flutter/bin/flutter pub get
-../flutter/bin/flutter run -d macos
+# build + embute a dylib + abre o app
+./tool/package_macos.sh
+
+# desenvolvimento com hot reload
+flutter run -d macos
+```
+
+> A dylib é carregada de `Contents/Frameworks/` no bundle. Em desenvolvimento, há fallback
+> para `rust/target/release/`. Também é possível forçar com
+> `--dart-define=BMB_CORE_LIB=/caminho/libbemybench_core.dylib`.
+
+## Comandos úteis
+
+```bash
+flutter analyze
+flutter test
+dart run tool/check_battery.dart     # leitura real da bateria
+dart run tool/check_sensors.dart     # CPU/RAM em tempo real
+dart run tool/check_bench.dart       # benchmarks fora da UI
+cd rust && cargo test --release      # testes do core
+```
+
+## Metodologia do benchmark
+
+Score próprio — **não** clona Geekbench/Cinebench.
+
+- **CPU:** mistura de inteiros (xorshift), ponto flutuante e acesso a memória local, em janela
+  fixa de tempo. Score = Mops/s single-core + Mops/s multi-core.
+- **Memória:** banda sequencial de escrita/leitura/cópia (GB/s) + latência de acesso aleatório
+  via pointer chasing (ns).
+- **Disco:** leitura/escrita sequencial em arquivo temporário, removido ao final.
+
+Referência medida neste MacBook (16 GB, Apple Silicon, 10 threads):
+`CPU score ≈ 4.872` · `RAM leitura ≈ 35 GB/s` · `latência ≈ 13 ns` · `SSD ≈ 3.7 GB/s leitura`.
+
+## Armadilhas conhecidas
+
+1. **Não coloque o projeto em `~/Documents`.** O macOS 27 protege essa pasta (TCC) e o
+   `xcodebuild` falha com `disk I/O error` no `build.db`. Projeto fica em `~/repos/BeMyBench`.
+2. **Não use `Size.fromHeight()` em tema de botão.** Isso vira `width: Infinity` e quebra
+   qualquer botão dentro de `Row` (a tela fica preta). Use `Size(0, altura)`.
+3. **Não assine o app com `codesign --deep`.** Reassinar os frameworks do Flutter quebra o bundle.
+
+## Estrutura
+
+```
+lib/
+  core/
+    native/native_core.dart      # FFI: carrega a dylib Rust
+    platform/platform_detector.dart
+    theme/app_theme.dart         # touch vs desktop
+  features/
+    system_info/  sensors/  battery/  benchmark/
+    performance/                 # stubs V1.1 (cleaner, updater, ram_disk)
+rust/src/lib.rs                  # CPU + memória (C ABI)
+tool/                            # probes e package_macos.sh
+docs/                            # planejamento
+journal.json                     # diário de contexto
 ```

@@ -1,8 +1,11 @@
 # BMyBench (Be My Bench)
 
+[![CI](https://github.com/luciussama/BeMyBench/actions/workflows/ci.yml/badge.svg)](https://github.com/luciussama/BeMyBench/actions/workflows/ci.yml)
+
 **AIDA64 moderno e cross-platform.** Diagnóstico de hardware + benchmark com score próprio + saúde de bateria + (futuro) auxílio de desempenho.
 
-> **MVP = ler e medir.** Ações destrutivas (limpar, atualizar, estressar) ficam para a V1.1.
+> Repositório público para referência. **Não há licença e contribuições externas não estão abertas no momento.**
+> **MVP = ler e medir.** Ações destrutivas (limpar, atualizar, estressar sem limite) ficam para a V1.1.
 > Planejamento completo: [`docs/BMyBench_MVP_Planning.md`](docs/BMyBench_MVP_Planning.md)
 > Diário de contexto (decisões, progresso, números medidos): [`journal.json`](journal.json)
 
@@ -24,16 +27,21 @@
 | 1 — Bateria (macOS real) | ✅ |
 | 1 — Sensores CPU/RAM (macOS/Linux) | ✅ |
 | 2 — Benchmarks CPU/Memória/Disco | ✅ |
-| 2 — GPU Metal (compute + render) + comparação | ✅ |
+| 2 — GPU Metal (compute + render HDR) + comparação | ✅ |
+| 2 — Estresse contínuo de GPU (aba Estresse) | ✅ |
+| CI — GitHub Actions (analyze + testes + build macOS) | ✅ |
 | 3 — MVP+ (RAM single/dual, saúde SSD, temp, updates) | ⏳ |
 | V1.1 — Cleaner, Updater, FurMark, teste de descarga | ⏳ |
 
 ## Como rodar
 
-Pré-requisitos: Xcode, Flutter SDK e Rust.
+Pré-requisitos: Xcode, Flutter SDK (3.47.9) e Rust (stable).
 
 ```bash
-# build + embute a dylib + abre o app
+git clone https://github.com/luciussama/BeMyBench.git
+cd BeMyBench
+
+# build + compila o core Rust + embute a dylib + assina e abre o app
 ./tool/package_macos.sh
 
 # desenvolvimento com hot reload
@@ -44,7 +52,7 @@ flutter run -d macos
 > para `rust/target/release/`. Também é possível forçar com
 > `--dart-define=BMB_CORE_LIB=/caminho/libbemybench_core.dylib`.
 
-## Comandos úteis
+## Principais comandos
 
 ```bash
 flutter analyze
@@ -54,6 +62,19 @@ dart run tool/check_sensors.dart     # CPU/RAM em tempo real
 dart run tool/check_bench.dart       # benchmarks fora da UI
 cd rust && cargo test --release      # testes do core
 ```
+
+## CI (GitHub Actions)
+
+A cada push em `main` e em cada Pull Request, o workflow
+[`ci.yml`](.github/workflows/ci.yml) executa:
+
+| Job | Plataforma | O que faz |
+|---|---|---|
+| `Flutter analyze + test` | Ubuntu + macOS | `flutter pub get` → `flutter analyze` → `flutter test` |
+| `Rust (core)` | Ubuntu | `cargo test --release` em `rust/` |
+| `Build macOS app` | macOS | `cargo build --release` → `flutter build macos --debug` (sem assinatura) |
+
+O badge no topo do README reflete o status atual da branch `main`.
 
 ## Metodologia do benchmark
 
@@ -66,6 +87,9 @@ Score próprio — **não** clona Geekbench/Cinebench.
 - **Disco:** leitura/escrita sequencial em arquivo temporário, removido ao final.
 - **GPU compute (macOS):** kernel Metal de compute (FMA + sin/cos/sqrt) sobre
   1920×1080 off-screen, medido pelo tempo de GPU do command buffer.
+- **Aba Estresse:** roda o mesmo render em passos de 1 s (30 s / 60 s / contínuo),
+  registra fps ao longo do tempo e carga da CPU, e infere thermal throttling pela
+  queda entre o pico e o pior valor amostrado.
 - **GPU render (macOS):** pipeline HDR completo em 1920×1080 off-screen — MSAA 4×
   com resolve, HDR `rgba16Float`, 1.024 cubos instanciados com depth, iluminação
   difusa/especular, céu procedural, bloom (bright pass + blur separável em meia
@@ -99,10 +123,12 @@ lib/
     theme/app_theme.dart         # touch vs desktop
     widgets/dashboard.dart       # painéis, tiles, chips e gráficos
   features/
-    system_info/  sensors/  battery/  benchmark/
+    system_info/  sensors/  battery/  benchmark/  stress/
     performance/                 # stubs V1.1 (cleaner, updater, ram_disk)
 macos/Runner/GpuBenchmark.swift  # kernel Metal off-screen (MethodChannel)
 rust/src/lib.rs                  # CPU + memória (C ABI)
+integration_test/                # GPU channel em app real (flutter test -d macos)
+.github/workflows/ci.yml         # analyze + testes + build macOS
 tool/                            # probes e package_macos.sh
 docs/                            # planejamento
 journal.json                     # diário de contexto

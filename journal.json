@@ -506,6 +506,16 @@
         "historyClean": true,
         "rustTargetUntracked": true
       }
+    },
+    {
+      "date": "2026-11-05T17:05",
+      "phase": "CI + README",
+      "done": [
+        ".github/workflows/ci.yml: jobs Flutter analyze+test (matrix ubuntu+macos), rust cargo test --release e build macOS debug sem assinatura",
+        "README: badge de CI, status dos jobs, aba Estresse, estrutura atualizada e nota de que nao ha licenca/contribuicoes",
+        "Badge: https://github.com/luciussama/BeMyBench/actions/workflows/ci.yml/badge.svg",
+        "Sem licenca, por decisao do usuario (repo publico para referencia)"
+      ]
     }
   ],
   "roadmap": {

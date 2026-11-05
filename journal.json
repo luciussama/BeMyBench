@@ -579,6 +579,7 @@
         "Limpeza de artefatos temporários: removidos os arquivos mock de UI estática com timers simulados"
       ],
       "decision": "Janela 3D implementada nativamente em Metal (AppKit + MetalKit) sem travar no VSync; fechável de forma independente sem derrubar o app Flutter",
+      "commit": "98b6555",
       "status": "concluído"
     }
   ],

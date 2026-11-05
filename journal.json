@@ -6,7 +6,7 @@
     "created": "2026-11-05",
     "owner": "sergio",
     "workingDir": "$HOME/repos/BeMyBench",
-    "status": "MVP - Fase 0 concluída / Fase 1 em andamento (build macOS funcionando em ~/repos)",
+    "status": "MVP - Fase 0 concluída / Fase 1 em andamento (Sistema + Bateria + Sensores reais no macOS)",
     "goal": "AIDA64 moderno, cross-platform (macOS, Windows, Linux, Android), com diagnóstico + benchmark + saúde de bateria + auxílio de desempenho.",
     "stack": {
       "ui": "Flutter 3.47.9 / Dart 3.13.7 (instalado em ../flutter)",
@@ -219,6 +219,25 @@
         "appRunning": true,
         "location": "$HOME/repos/BeMyBench"
       }
+    },
+    {
+      "date": "2026-11-05T10:10",
+      "phase": "Fase 1 - Sensores",
+      "done": [
+        "SensorsService: CPU via top (2 amostras), RAM via vm_stat + hw.memsize (macOS); /proc para Linux",
+        "SensorsScreen com polling de 2s, barras coloridas, pausar/retomar/atualizar",
+        "Temperatura e ventoinha marcadas N/A com explicação (Apple Silicon exige powermetrics/IOHIDEventSystemClient nativo)",
+        "Probe real: CPU ~16%, RAM 12.1/16.0 GB (75%)",
+        "flutter analyze: 0 erros",
+        "flutter build macos --debug OK e app relançado",
+        "git init + commit inicial (96 arquivos) e commit dos sensores"
+      ],
+      "verified": {
+        "sensorsProbe": {
+          "cpu": "16.0%",
+          "ram": "12.1 GB / 16.0 GB (75.4%)"
+        }
+      }
     }
   ],
   "roadmap": {
@@ -232,11 +251,10 @@
     "Instalar CocoaPods (sudo gem install cocoapods) quando houver plugins nativos",
     "Aceitar licenças Android (flutter doctor --android-licenses) para gerar APK",
     "Implementar BatteryService para Windows/Linux/Android",
-    "Implementar Sensores (CPU/RAM em tempo real + temperatura quando possível)",
     "Implementar System Info de GPU (system_profiler no macOS)",
     "Ligar Rust (flutter_rust_bridge) para benchmarks CPU/Memória/Disco",
     "Storage breakdown (df -h por volume no macOS)",
-    "Corrigir infos de lint (const) e adicionar lints mais estritos"
+    "Remover aviso de stale file (flutter clean) e ajustar const lints"
   ],
   "openQuestions": [
     "Nome de display final (BMyBench vs Be My Bench) para ícone/splash",

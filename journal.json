@@ -6,7 +6,7 @@
     "created": "2026-11-05",
     "owner": "sergio",
     "workingDir": "$HOME/repos/BeMyBench",
-    "status": "MVP - aba Estresse: estresse continuo de GPU com curva de fps e deteccao de throttling",
+    "status": "v1 marcada (tag + release), protecao de branch na main; fluxo de trabalho por iteracao documentado",
     "goal": "Ferramenta de diagnóstico de hardware moderno, cross-platform (macOS, Windows, Linux, Android), com diagnóstico + benchmark + saúde de bateria + auxílio de desempenho.",
     "stack": {
       "ui": "Flutter 3.47.9 / Dart 3.13.7 (instalado em ../flutter)",
@@ -532,6 +532,20 @@
         "unitTests": "4/4"
       },
       "decision": "Manter os nomes apenas como credito factual nos disclaimers (uso nominal aceito); nao usar nenhuma marca como identidade ou como se fosse o BMyBench"
+    },
+    {
+      "date": "2026-11-05T18:00",
+      "phase": "v1 + Fluxo",
+      "done": [
+        "Versao v1 marcada com tag anotada e publicada como release",
+        "Fluxo de trabalho documentado no README: main estavel, uma branch por iteracao, merge apenas via PR com CI verde",
+        "Protecao de branch ativada na main (PR obrigatorio + 4 status checks do CI)",
+        "Projeto de uso pessoal e referencia; sem licenca e sem contribuicoes"
+      ],
+      "verified": {
+        "gitTag": "v1",
+        "branchProtection": true
+      }
     }
   ],
   "roadmap": {

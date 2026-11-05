@@ -63,6 +63,23 @@ dart run tool/check_bench.dart       # benchmarks fora da UI
 cd rust && cargo test --release      # testes do core
 ```
 
+## Fluxo de trabalho
+
+A `main` é a linha estável. Cada iteração a partir de agora acontece em uma
+**branch própria** e só entra em `main` via Pull Request:
+
+```bash
+git checkout -b iter/<nome-da-iteracao>
+# ... trabalho ...
+git push -u origin iter/<nome-da-iteracao>
+gh pr create --base main
+```
+
+- A `main` exige Pull Request e CI verde para aceitar mudanças (proteção de branch)
+- Releases são marcadas com tags anotadas (`git tag -a v2 -m "..."`)
+- O `v1` marca o ponto de partida deste fluxo
+- Uso pessoal e de referência; sem licença e sem contribuições externas no momento
+
 ## CI (GitHub Actions)
 
 A cada push em `main` e em cada Pull Request, o workflow

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_colors.dart';
+import '../../core/widgets/dashboard.dart';
 import 'battery_service.dart';
 
 class BatteryScreen extends StatefulWidget {
@@ -12,7 +14,6 @@ class BatteryScreen extends StatefulWidget {
 class _BatteryScreenState extends State<BatteryScreen> {
   final _service = BatteryService();
   BatteryInfo? _info;
-  Map<String, String> _data = {};
   bool _loading = true;
   String _error = '';
 
@@ -32,10 +33,9 @@ class _BatteryScreenState extends State<BatteryScreen> {
       if (!mounted) return;
       setState(() {
         _info = info;
-        _data = info?.toDisplayMap() ?? {};
         _loading = false;
         if (info == null) {
-          _error = 'Bateria não detectada ou leitura ainda não implementada neste sistema.';
+          _error = 'Bateria não detectada ou leitura não implementada neste sistema.';
         }
       });
     } catch (e) {
@@ -47,16 +47,16 @@ class _BatteryScreenState extends State<BatteryScreen> {
     }
   }
 
-  Color _healthColor(double health) {
-    if (health >= 90) return Colors.green;
-    if (health >= 80) return Colors.orange;
-    return Colors.red;
+  Color _healthColor(double h) {
+    if (h >= 90) return AppColors.green;
+    if (h >= 80) return AppColors.orange;
+    return AppColors.red;
   }
 
-  String _healthLabel(double health) {
-    if (health >= 90) return 'Excelente';
-    if (health >= 80) return 'Boa';
-    if (health >= 70) return 'Degradada';
+  String _healthLabel(double h) {
+    if (h >= 90) return 'Excelente';
+    if (h >= 80) return 'Boa';
+    if (h >= 70) return 'Degradada';
     return 'Substituir';
   }
 
@@ -65,88 +65,125 @@ class _BatteryScreenState extends State<BatteryScreen> {
     if (_loading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_info == null) {
-      return RefreshIndicator(
-        onRefresh: _load,
-        child: ListView(
-          children: [
-            const SizedBox(height: 80),
-            Center(child: Text(_error.isEmpty ? 'Sem dados de bateria' : _error)),
-          ],
-        ),
+    final info = _info;
+    if (info == null) {
+      return Center(
+        child: Text(_error.isEmpty ? 'Sem dados de bateria' : _error),
       );
     }
 
-    final info = _info!;
     final color = _healthColor(info.health);
 
-    return RefreshIndicator(
-      onRefresh: _load,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                children: [
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        AppPanel(
+          padding: const EdgeInsets.all(22),
+          child: SectionHeader(
+            icon: Icons.battery_charging_full,
+            eyebrow: 'BMYBENCH BATTERY HEALTH',
+            title: 'Diagnóstico da bateria',
+            description:
+                'Leitura direta do controlador de carga. O teste de descarga completa '
+                '(100% → 20%) chega na V1.1.',
+            action: OutlinedButton.icon(
+              onPressed: _load,
+              icon: const Icon(Icons.refresh, size: 18),
+              label: const Text('Atualizar'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppColors.accent,
+                side: BorderSide(color: AppColors.accent.withValues(alpha: 0.4)),
+              ),
+            ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        MetricGrid(
+          tiles: [
+            MetricTile(
+              icon: Icons.percent,
+              color: AppColors.accent,
+              label: 'Nível',
+              value: '${info.percentage}%',
+              caption: info.isCharging
+                  ? 'carregando'
+                  : (info.externalConnected ? 'conectado (AC)' : 'descarregando'),
+              progress: info.percentage / 100,
+            ),
+            MetricTile(
+              icon: Icons.favorite_outline,
+              color: color,
+              label: 'Saúde',
+              value: '${info.health.toStringAsFixed(1)}%',
+              caption: _healthLabel(info.health),
+              valueColor: color,
+              progress: info.health / 100,
+            ),
+            MetricTile(
+              icon: Icons.loop,
+              color: AppColors.violet,
+              label: 'Ciclos',
+              value: '${info.cycleCount}',
+              caption: 'ciclos de carga completos',
+            ),
+            MetricTile(
+              icon: Icons.bolt,
+              color: AppColors.orange,
+              label: 'Tensão',
+              value: '${(info.voltage / 1000).toStringAsFixed(2)} V',
+              caption: 'leitura instantânea',
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        AppPanel(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: const [
+                  Icon(Icons.table_chart_outlined,
+                      size: 16, color: AppColors.textSecondary),
+                  SizedBox(width: 8),
                   Text(
-                    '${info.percentage}%',
-                    style: const TextStyle(fontSize: 48, fontWeight: FontWeight.bold),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(info.isCharging ? 'Carregando' : (info.externalConnected ? 'Conectado (AC)' : 'Descarregando')),
-                  const SizedBox(height: 16),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(
-                      value: info.percentage / 100,
-                      minHeight: 12,
-                      backgroundColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+                    'Capacidades',
+                    style: TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
                     ),
-                  ),
-                  const SizedBox(height: 20),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      Column(
-                        children: [
-                          Text(
-                            '${info.health.toStringAsFixed(1)}%',
-                            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color),
-                          ),
-                          const Text('Saúde'),
-                          Text(_healthLabel(info.health), style: TextStyle(color: color)),
-                        ],
-                      ),
-                      Column(
-                        children: [
-                          Text('${info.cycleCount}', style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                          const Text('Ciclos'),
-                        ],
-                      ),
-                    ],
                   ),
                 ],
               ),
-            ),
+              const SizedBox(height: 14),
+              _row('Capacidade de projeto', '${info.designCapacity} mAh'),
+              _row('Capacidade máxima atual', '${info.maxCapacity} mAh'),
+              _row('Carga atual', '${info.currentCapacity} mAh'),
+              _row('Ciclos', '${info.cycleCount}'),
+              _row('Status', info.isCharging
+                  ? 'Carregando'
+                  : (info.externalConnected ? 'Conectado (AC)' : 'Descarregando')),
+            ],
           ),
-          const SizedBox(height: 8),
-          for (final entry in _data.entries)
-            Card(
-              child: ListTile(
-                title: Text(entry.key, style: const TextStyle(fontWeight: FontWeight.w600)),
-                trailing: Text(entry.value),
-              ),
-            ),
-          const SizedBox(height: 8),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.info_outline),
-              title: const Text('Teste de descarga (V1.1)'),
-              subtitle: const Text('Mede autonomia real de 100% até 20%. Fica para a próxima versão.'),
-            ),
-          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _row(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(label,
+              style: const TextStyle(
+                  color: AppColors.textSecondary, fontSize: 12)),
+          Text(value,
+              style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600)),
         ],
       ),
     );

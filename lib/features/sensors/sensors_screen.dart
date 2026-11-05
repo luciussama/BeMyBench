@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/theme/app_colors.dart';
+import '../../core/widgets/dashboard.dart';
 import 'sensors_service.dart';
 
 class SensorsScreen extends StatefulWidget {
@@ -17,7 +19,9 @@ class _SensorsScreenState extends State<SensorsScreen> {
   Timer? _timer;
   bool _loading = true;
   bool _paused = false;
-  String _error = '';
+
+  final List<double> _cpuHistory = [];
+  final List<double> _ramHistory = [];
 
   @override
   void initState() {
@@ -41,144 +45,123 @@ class _SensorsScreenState extends State<SensorsScreen> {
       setState(() {
         _snapshot = s;
         _loading = false;
-        _error = '';
+        _cpuHistory.add(s.cpuUsagePercent);
+        _ramHistory.add(s.ramUsagePercent);
+        if (_cpuHistory.length > 60) _cpuHistory.removeAt(0);
+        if (_ramHistory.length > 60) _ramHistory.removeAt(0);
       });
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _loading = false;
-        _error = e.toString();
-      });
-    }
-  }
-
-  Color _loadColor(double pct) {
-    if (pct < 50) return Colors.green;
-    if (pct < 80) return Colors.orange;
-    return Colors.red;
+    } catch (_) {}
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_loading) {
+    if (_loading || _snapshot == null) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (_snapshot == null) {
-      return Center(child: Text(_error.isEmpty ? 'Sem dados' : _error));
-    }
-
     final s = _snapshot!;
+
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(24),
       children: [
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        AppPanel(
+          padding: const EdgeInsets.all(22),
+          child: SectionHeader(
+            icon: Icons.monitor_heart_outlined,
+            eyebrow: 'BMYBENCH SENSOR MONITOR',
+            title: 'Sensores em tempo real',
+            description:
+                'Leitura direta do sistema a cada 2 segundos. Temperatura e ventoinha exigem '
+                'acesso privilegiado no Apple Silicon e ficam para a V1.1.',
+            action: Wrap(
+              spacing: 10,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Uso de CPU', style: TextStyle(fontWeight: FontWeight.w600)),
-                    Text('${s.cpuUsagePercent.toStringAsFixed(1)}%',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: _loadColor(s.cpuUsagePercent),
-                        )),
-                  ],
+                OutlinedButton.icon(
+                  onPressed: () => setState(() => _paused = !_paused),
+                  icon: Icon(_paused ? Icons.play_arrow : Icons.pause, size: 18),
+                  label: Text(_paused ? 'Retomar' : 'Pausar'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.textPrimary,
+                    side: const BorderSide(color: AppColors.border),
+                  ),
                 ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: s.cpuUsagePercent / 100,
-                    minHeight: 10,
-                    color: _loadColor(s.cpuUsagePercent),
+                OutlinedButton.icon(
+                  onPressed: _tick,
+                  icon: const Icon(Icons.refresh, size: 18),
+                  label: const Text('Atualizar'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.accent,
+                    side: BorderSide(
+                      color: AppColors.accent.withValues(alpha: 0.4),
+                    ),
                   ),
                 ),
               ],
             ),
           ),
         ),
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    const Text('Uso de RAM', style: TextStyle(fontWeight: FontWeight.w600)),
-                    Text('${s.ramUsagePercent.toStringAsFixed(1)}%',
-                        style: TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.bold,
-                          color: _loadColor(s.ramUsagePercent),
-                        )),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: s.ramUsagePercent / 100,
-                    minHeight: 10,
-                    color: _loadColor(s.ramUsagePercent),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text('${s.ramUsedLabel} de ${s.ramTotalLabel}'),
-              ],
+        const SizedBox(height: 16),
+        MetricGrid(
+          tiles: [
+            MetricTile(
+              icon: Icons.memory,
+              color: AppColors.accent,
+              label: 'Carga da CPU',
+              value: '${s.cpuUsagePercent.toStringAsFixed(1)}%',
+              caption: 'amostra a cada 2s',
+              progress: s.cpuUsagePercent / 100,
+              valueColor: AppColors.loadColor(s.cpuUsagePercent),
             ),
-          ),
-        ),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.thermostat),
-            title: const Text('Temperatura'),
-            subtitle: const Text(
-              'Não disponível: no Apple Silicon a leitura exige powermetrics com sudo. '
-              'Será implementado via IOHIDEventSystemClient em código nativo (V1.1).',
+            MetricTile(
+              icon: Icons.layers_outlined,
+              color: AppColors.orange,
+              label: 'Memória RAM',
+              value: '${s.ramUsagePercent.toStringAsFixed(0)}%',
+              caption: '${s.ramUsedLabel} de ${s.ramTotalLabel}',
+              progress: s.ramUsagePercent / 100,
+              valueColor: AppColors.loadColor(s.ramUsagePercent),
             ),
-            trailing: const Text('N/A'),
-          ),
-        ),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.mode_fan_off),
-            title: const Text('Ventoinha'),
-            subtitle: const Text('Sem leitura disponível neste modelo (Apple Silicon / sem SMC acessível).'),
-            trailing: const Text('N/A'),
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () => setState(() => _paused = !_paused),
-                icon: Icon(_paused ? Icons.play_arrow : Icons.pause),
-                label: Text(_paused ? 'Retomar' : 'Pausar'),
-              ),
+            MetricTile(
+              icon: Icons.thermostat,
+              color: AppColors.red,
+              label: 'Temperatura',
+              value: 'N/A',
+              caption: 'requer acesso nativo privilegiado',
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _tick,
-                icon: const Icon(Icons.refresh),
-                label: const Text('Atualizar'),
-              ),
+            MetricTile(
+              icon: Icons.mode_fan_off,
+              color: AppColors.violet,
+              label: 'Ventoinha',
+              value: 'N/A',
+              caption: 'sem SMC acessível neste modelo',
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 16),
+        LineChartPanel(
+          title: 'Histórico de CPU',
+          legend: 'CPU (%)',
+          icon: Icons.show_chart,
+          values: _cpuHistory,
+          maxValue: 100,
+          emptyLabel: 'Coletando amostras...',
+          height: 170,
+        ),
+        const SizedBox(height: 16),
+        LineChartPanel(
+          title: 'Histórico de memória',
+          legend: 'RAM (%)',
+          icon: Icons.stacked_line_chart,
+          values: _ramHistory,
+          maxValue: 100,
+          emptyLabel: 'Coletando amostras...',
+          color: AppColors.orange,
+          height: 170,
+        ),
+        const SizedBox(height: 12),
         Center(
           child: Text(
-            _paused ? 'Atualização pausada' : 'Atualizando a cada 2s',
-            style: Theme.of(context).textTheme.bodySmall,
+            _paused ? 'Monitoramento pausado' : 'Atualizando a cada 2 segundos',
+            style: const TextStyle(color: AppColors.textMuted, fontSize: 11),
           ),
         ),
       ],

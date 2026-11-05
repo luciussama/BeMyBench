@@ -43,6 +43,32 @@ class SensorsService {
     );
   }
 
+  /// Leitura rápida só do uso de CPU (para gráficos em tempo real).
+  /// Evita o custo de `top -l 2` (~1s) usando `ps`.
+  Future<double> cpuPercentQuick() async {
+    try {
+      if (Platform.isMacOS) {
+        final out = await _run('ps', ['-A', '-o', '%cpu=']);
+        final sum = out
+            .split('\n')
+            .map((l) => double.tryParse(l.trim()) ?? 0)
+            .fold<double>(0, (a, b) => a + b);
+        final cores = Platform.numberOfProcessors;
+        return (sum / cores).clamp(0.0, 100.0);
+      }
+      if (Platform.isLinux) {
+        final s = await _run('cat', ['/proc/stat']);
+        final first = s.split('\n').first.split(RegExp(r'\s+'));
+        final v = first.skip(1).take(7).map(int.parse).toList();
+        final total = v.fold<int>(0, (a, b) => a + b);
+        final idle = v[3] + (v.length > 4 ? v[4] : 0);
+        if (total == 0) return 0;
+        return ((total - idle) / total * 100).clamp(0.0, 100.0);
+      }
+    } catch (_) {}
+    return 0;
+  }
+
   Future<String> _run(String cmd, List<String> args) async {
     final r = await Process.run(cmd, args);
     return (r.stdout as String);

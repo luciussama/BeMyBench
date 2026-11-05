@@ -6,11 +6,11 @@
     "created": "2026-11-05",
     "owner": "sergio",
     "workingDir": "$HOME/repos/BeMyBench",
-    "status": "MVP - Fase 0 concluída / Fase 1 em andamento (Sistema + Bateria + Sensores reais no macOS)",
+    "status": "MVP - Fase 0/1 concluídas; Fase 2 (benchmarks Rust) implementada",
     "goal": "AIDA64 moderno, cross-platform (macOS, Windows, Linux, Android), com diagnóstico + benchmark + saúde de bateria + auxílio de desempenho.",
     "stack": {
       "ui": "Flutter 3.47.9 / Dart 3.13.7 (instalado em ../flutter)",
-      "benchmarkCore": "Rust 1.99.1 (instalado, apenas esqueleto)",
+      "benchmarkCore": "Rust 1.99.1 via FFI puro (cdylib), sem flutter_rust_bridge",
       "macosNative": "Swift + IOKit (planejado)",
       "windowsNative": "C++/WMI (planejado)",
       "linuxNative": "/proc, sysctl, nvme, dmidecode (planejado)",
@@ -238,6 +238,43 @@
           "ram": "12.1 GB / 16.0 GB (75.4%)"
         }
       }
+    },
+    {
+      "date": "2026-11-05T10:40",
+      "phase": "Fase 2 - Benchmarks em Rust",
+      "done": [
+        "Core Rust com C ABI: bmb_version, bmb_cpu_benchmark, bmb_memory_benchmark, bmb_free_string",
+        "CPU: xorshift + float + acesso a memoria, janela fixa; score = Mops/s single + multi",
+        "Memoria: banda sequencial escrita/leitura/copia + latencia via pointer chasing",
+        "3 testes Rust passando (cargo test --release)",
+        "Dart FFI: lib/core/native/native_core.dart (busca dart-define, env, Contents/Frameworks, fallback dev)",
+        "BenchmarkRunner com Isolate.run (nao trava a UI) + bench de disco em Dart puro",
+        "Tela Benchmark com cards CPU/Memoria/Disco, progresso e resultados",
+        "tool/package_macos.sh: builda Rust, builda app, embute dylib em Contents/Frameworks e assina",
+        "CocoaPods 1.17.0 instalado via Homebrew"
+      ],
+      "verified": {
+        "probe": {
+          "cpu": {
+            "singleMops": 602.0,
+            "multiMops": 4270.1,
+            "threads": 10,
+            "score": 4872.1
+          },
+          "memoria": {
+            "escritaGbps": 6.8,
+            "leituraGbps": 35.42,
+            "copiaGbps": 9.21,
+            "latenciaNs": 13.1
+          },
+          "disco": {
+            "escritaMbps": 2445,
+            "leituraMbps": 3702
+          }
+        },
+        "appRunning": true,
+        "dylibBundled": "Contents/Frameworks/libbemybench_core.dylib"
+      }
     }
   ],
   "roadmap": {
@@ -248,11 +285,14 @@
     "v1_1": "Performance Aid: diagnóstico completo, cleaner seguro, updater, FurMark, relatório"
   },
   "todo": [
+    "Implementar GPU info + FPS simples (Metal)",
+    "Storage breakdown (df -h por volume)",
+    "BatteryService Windows/Linux/Android",
+    "Aceitar licenças Android e gerar APK",
+    "Benchmark: histórico de resultados e comparação entre execuções",
     "Instalar CocoaPods (sudo gem install cocoapods) quando houver plugins nativos",
-    "Aceitar licenças Android (flutter doctor --android-licenses) para gerar APK",
     "Implementar BatteryService para Windows/Linux/Android",
     "Implementar System Info de GPU (system_profiler no macOS)",
-    "Ligar Rust (flutter_rust_bridge) para benchmarks CPU/Memória/Disco",
     "Storage breakdown (df -h por volume no macOS)",
     "Remover aviso de stale file (flutter clean) e ajustar const lints"
   ],
@@ -268,6 +308,8 @@
     "analyze": "cd ~/repos/BeMyBench && $HOME/Documents/Default Project/flutter/bin/flutter analyze",
     "test": "cd ~/repos/BeMyBench && $HOME/Documents/Default Project/flutter/bin/flutter test",
     "batteryProbe": "cd ~/repos/BeMyBench && $HOME/Documents/Default Project/flutter/bin/dart run tool/check_battery.dart",
-    "rust": "~/.cargo/bin/cargo"
+    "rust": "~/.cargo/bin/cargo",
+    "packageMac": "cd ~/repos/BeMyBench && ./tool/package_macos.sh",
+    "benchProbe": "cd ~/repos/BeMyBench && $HOME/Documents/Default Project/flutter/bin/dart run tool/check_bench.dart"
   }
 }

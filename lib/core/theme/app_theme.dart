@@ -52,7 +52,9 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          minimumSize: Size.fromHeight(minTouchTarget),
+          // Largura infinita aqui quebra layouts dentro de Row (tela preta).
+          minimumSize: Size(0, minTouchTarget),
+          padding: EdgeInsets.symmetric(horizontal: isTouch ? 24 : 16),
           textStyle: TextStyle(
             fontSize: baseFontSize * fontScale,
             fontWeight: FontWeight.w600,

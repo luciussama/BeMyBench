@@ -30,6 +30,7 @@ cp "$DYLIB" "$APP/Contents/Frameworks/libbemybench_core.dylib"
 codesign --force --sign - "$APP/Contents/Frameworks/libbemybench_core.dylib"
 
 echo "==> [4/4] Assinando app e abrindo"
-codesign --force --deep --sign - "$APP"
+# Sem --deep: reassinar frameworks internos do Flutter quebra o bundle (tela preta).
+codesign --force --sign - "$APP"
 open "$APP"
 echo "OK: $APP"

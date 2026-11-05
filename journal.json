@@ -275,6 +275,18 @@
         "appRunning": true,
         "dylibBundled": "Contents/Frameworks/libbemybench_core.dylib"
       }
+    },
+    {
+      "date": "2026-11-05T11:00",
+      "phase": "Bugfix - tela preta no Benchmark",
+      "done": [
+        "Sintoma: aba Benchmark renderizava preta e app quebrava o layout",
+        "Diagnostico via flutter run: 'BoxConstraints forces an infinite width' em ElevatedButton dentro de Row",
+        "Causa raiz: AppTheme usava minimumSize: Size.fromHeight(x), que equivale a width = double.infinity",
+        "Fix: minimumSize: Size(0, altura) + padding horizontal explicito",
+        "Confirmado pelo usuario que a tela voltou a funcionar"
+      ],
+      "lesson": "Nunca usar Size.fromHeight/fromWidth em temas de botao: quebra qualquer botao dentro de Row/Column nao-flexivel"
     }
   ],
   "roadmap": {

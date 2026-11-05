@@ -6,7 +6,7 @@
     "created": "2026-11-05",
     "owner": "sergio",
     "workingDir": "$HOME/repos/BeMyBench",
-    "status": "MVP - Fase 0/1 concluídas; Fase 2 (benchmarks Rust) implementada",
+    "status": "MVP - Fase 0/1/2 concluídas; layout desktop (dashboard Hardware) implementado",
     "goal": "AIDA64 moderno, cross-platform (macOS, Windows, Linux, Android), com diagnóstico + benchmark + saúde de bateria + auxílio de desempenho.",
     "stack": {
       "ui": "Flutter 3.47.9 / Dart 3.13.7 (instalado em ../flutter)",
@@ -287,6 +287,24 @@
         "Confirmado pelo usuario que a tela voltou a funcionar"
       ],
       "lesson": "Nunca usar Size.fromHeight/fromWidth em temas de botao: quebra qualquer botao dentro de Row/Column nao-flexivel"
+    },
+    {
+      "date": "2026-11-05T11:40",
+      "phase": "UI - Dashboard desktop",
+      "done": [
+        "Shell adaptativo: TopNav (>=860px) no desktop e NavigationBar no touch/estreito",
+        "Tema escuro novo (AppColors): bg #0B1016, card #111A23, accent #22D3EE",
+        "Tela Hardware: card herói (host/OS/kernel/modelo/chip/threads) + botões Testar CPU / Limpar Disco / Boost RAM",
+        "4 tiles: Carga CPU, RAM, GPU, Disco livre (com barras)",
+        "Bloco em 2 colunas: 'Lido em tempo real' e 'Limites por plataforma'",
+        "HardwareService (sw_vers, uname, sysctl hw.model/hw.ncpu/hw.memsize, system_profiler, df -k)",
+        "Janela inicial 1280x840, min 560x640",
+        "Bugfix: CrossAxisAlignment.stretch em Row dentro de ListView causava altura infinita; resolvido com IntrinsicHeight"
+      ],
+      "verified": {
+        "exceptions": 0,
+        "layoutErrors": 0
+      }
     }
   ],
   "roadmap": {
@@ -315,7 +333,7 @@
   ],
   "commands": {
     "flutter": "$HOME/Documents/Default Project/flutter/bin/flutter",
-    "runMac": "cd ~/repos/BeMyBench && $HOME/Documents/Default Project/flutter/bin/flutter run -d macos",
+    "runMac": "cd ~/repos/BeMyBench && ./tool/package_macos.sh",
     "buildMac": "cd ~/repos/BeMyBench && $HOME/Documents/Default Project/flutter/bin/flutter build macos --debug",
     "analyze": "cd ~/repos/BeMyBench && $HOME/Documents/Default Project/flutter/bin/flutter analyze",
     "test": "cd ~/repos/BeMyBench && $HOME/Documents/Default Project/flutter/bin/flutter test",

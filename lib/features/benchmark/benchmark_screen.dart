@@ -15,7 +15,6 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
   BenchStatus _cpuStatus = BenchStatus.idle;
   BenchStatus _memStatus = BenchStatus.idle;
   BenchStatus _diskStatus = BenchStatus.idle;
-  BenchStatus _gpuStatus = BenchStatus.idle;
 
   CpuBenchResult? _cpu;
   MemoryBenchResult? _mem;

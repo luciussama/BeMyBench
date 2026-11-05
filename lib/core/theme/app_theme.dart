@@ -1,19 +1,57 @@
 import 'package:flutter/material.dart';
 
-/// Tema adaptativo: touchscreen = botões maiores, fontes maiores, paddings generosos.
-/// Desktop = layout denso, compacto, estilo AIDA64.
+import 'app_colors.dart';
+
+/// Tema adaptativo: touchscreen = alvos maiores; desktop = denso.
 class AppTheme {
   static ThemeData light({required bool isTouch}) => _base(
         brightness: Brightness.light,
         isTouch: isTouch,
-        seed: const Color(0xFF0F766E),
+        seed: AppColors.accentDeep,
       );
 
-  static ThemeData dark({required bool isTouch}) => _base(
-        brightness: Brightness.dark,
-        isTouch: isTouch,
-        seed: const Color(0xFF14B8A6),
-      );
+  static ThemeData dark({required bool isTouch}) {
+    final base = _base(
+      brightness: Brightness.dark,
+      isTouch: isTouch,
+      seed: AppColors.accent,
+    );
+    // Sobrescreve a paleta para o visual do dashboard.
+    final scheme = base.colorScheme.copyWith(
+      surface: AppColors.bg,
+      onSurface: AppColors.textPrimary,
+      surfaceContainerHighest: AppColors.card,
+      outlineVariant: AppColors.border,
+      primary: AppColors.accent,
+      onPrimary: const Color(0xFF04212A),
+    );
+
+    return base.copyWith(
+      colorScheme: scheme,
+      scaffoldBackgroundColor: AppColors.bg,
+      canvasColor: AppColors.bg,
+      cardColor: AppColors.card,
+      dividerColor: AppColors.borderSoft,
+      appBarTheme: const AppBarTheme(
+        backgroundColor: AppColors.bg,
+        foregroundColor: AppColors.textPrimary,
+        elevation: 0,
+        centerTitle: false,
+      ),
+      cardTheme: base.cardTheme.copyWith(
+        color: AppColors.card,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: const BorderSide(color: AppColors.border),
+        ),
+      ),
+      textTheme: base.textTheme.apply(
+        bodyColor: AppColors.textPrimary,
+        displayColor: AppColors.textPrimary,
+      ),
+      iconTheme: const IconThemeData(color: AppColors.textSecondary),
+    );
+  }
 
   static ThemeData _base({
     required Brightness brightness,
@@ -27,20 +65,16 @@ class AppTheme {
 
     final fontScale = isTouch ? 1.1 : 1.0;
     final baseFontSize = isTouch ? 17.0 : 14.0;
-    final minTouchTarget = isTouch ? 56.0 : 48.0;
+    final minTouchTarget = isTouch ? 56.0 : 44.0;
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
       primaryColor: seed,
-      appBarTheme: AppBarTheme(
-        backgroundColor: colorScheme.surface,
-        foregroundColor: colorScheme.onSurface,
-        elevation: 0,
-      ),
       textTheme: TextTheme(
         bodyLarge: TextStyle(fontSize: baseFontSize * fontScale),
         bodyMedium: TextStyle(fontSize: baseFontSize * 0.95 * fontScale),
+        bodySmall: TextStyle(fontSize: baseFontSize * 0.8 * fontScale),
         titleLarge: TextStyle(
           fontSize: baseFontSize * 1.2 * fontScale,
           fontWeight: FontWeight.w600,
@@ -52,25 +86,22 @@ class AppTheme {
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
-          // Largura infinita aqui quebra layouts dentro de Row (tela preta).
+          // Nunca usar Size.fromHeight: width infinito quebra Row (tela preta).
           minimumSize: Size(0, minTouchTarget),
-          padding: EdgeInsets.symmetric(horizontal: isTouch ? 24 : 16),
+          padding: EdgeInsets.symmetric(horizontal: isTouch ? 24 : 18),
           textStyle: TextStyle(
             fontSize: baseFontSize * fontScale,
             fontWeight: FontWeight.w600,
           ),
-        ),
-      ),
-      cardTheme: CardThemeData(
-        margin: EdgeInsets.all(isTouch ? 16 : 8),
-        elevation: 0,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(isTouch ? 16 : 12),
-          side: BorderSide(color: colorScheme.outlineVariant),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(10),
+          ),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
         height: isTouch ? 80 : 64,
+        backgroundColor: AppColors.surface,
+        indicatorColor: AppColors.accent.withValues(alpha: 0.15),
       ),
     );
   }

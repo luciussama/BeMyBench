@@ -17,5 +17,6 @@ void main() {
     expect(find.text('Bateria'), findsWidgets);
     expect(find.text('Benchmark'), findsWidgets);
     expect(find.text('Estresse'), findsWidgets);
+    expect(find.text('Histórico'), findsWidgets);
   });
 }

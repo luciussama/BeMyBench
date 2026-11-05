@@ -6,6 +6,7 @@ import '../../core/theme/app_colors.dart';
 import '../battery/battery_service.dart';
 import '../benchmark/gpu_benchmark.dart';
 import '../sensors/sensors_service.dart';
+import '../storage/storage_panel.dart';
 import 'hardware_service.dart';
 
 /// Dashboard "Hardware": card herói + tiles de status + bloco em 2 colunas.
@@ -109,6 +110,8 @@ class _HardwareScreenState extends State<HardwareScreen> {
               const SizedBox(height: 16),
               const _LimitsCard(),
             ],
+            const SizedBox(height: 16),
+            const StoragePanel(),
           ],
         );
       },

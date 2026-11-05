@@ -1,10 +1,13 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
 import '../../core/native/native_core.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/dashboard.dart';
+import '../history/bench_record.dart';
+import '../history/history_store.dart';
 import '../sensors/sensors_service.dart';
 import 'benchmark_models.dart';
 import 'benchmark_runner.dart';
@@ -164,6 +167,26 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
       setState(() => _error = e.toString());
     } finally {
       _elapsedTimer?.cancel();
+      if (_error == null && _done > 0 && mounted) {
+        // Salva a execução no histórico local (falha de persistência não trava a UI)
+        final record = BenchRecord(
+          timestamp: DateTime.now(),
+          cpuScore: _cpu?.score,
+          cpuSingleMops: _cpu?.singleMops,
+          cpuMultiMops: _cpu?.multiMops,
+          memScore: _mem?.score,
+          diskScore: _disk?.score,
+          gpuComputeScore: _gpuCompute?.score,
+          gpuRenderScore: _gpuRender?.score,
+          gpuRenderOnePercentLow: _gpuRender?.onePercentLowFps,
+          totalScore: _totalScore,
+          gpuDevice: _gpuRender?.device ?? _gpuCompute?.device,
+          osLabel: Platform.isMacOS ? 'macOS' : Platform.operatingSystem,
+        );
+        try {
+          await BenchHistoryStore().append(record);
+        } catch (_) {}
+      }
       if (mounted) {
         setState(() {
           _running = false;
@@ -215,8 +238,9 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
             title: 'Benchmark de hardware',
             description:
                 'Executa os testes selecionados em sequência, medindo CPU, memória, disco '
-                'e GPU (compute + renderização Metal off-screen) com score próprio. O '
-                'gráfico abaixo mostra a atividade real da CPU.',
+                'e GPU (compute + renderização Metal off-screen). O resultado é salvo '
+                'automaticamente no Histórico. O gráfico abaixo mostra a atividade real '
+                'da CPU.',
             action: GradientActionButton(
               label: _running ? 'EXECUTANDO...' : 'INICIAR TESTES',
               icon: _running ? Icons.hourglass_top : Icons.play_arrow,

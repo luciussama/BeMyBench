@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/luciussama/BeMyBench/actions/workflows/ci.yml/badge.svg)](https://github.com/luciussama/BeMyBench/actions/workflows/ci.yml)
 
-**AIDA64 moderno e cross-platform.** Diagnóstico de hardware + benchmark com score próprio + saúde de bateria + (futuro) auxílio de desempenho.
+**Diagnóstico de hardware e benchmark, cross-platform.** Diagnóstico de hardware + benchmark com score próprio + saúde de bateria + (futuro) auxílio de desempenho.
 
 > Repositório público para referência. **Não há licença e contribuições externas não estão abertas no momento.**
 > **MVP = ler e medir.** Ações destrutivas (limpar, atualizar, estressar sem limite) ficam para a V1.1.
@@ -31,7 +31,7 @@
 | 2 — Estresse contínuo de GPU (aba Estresse) | ✅ |
 | CI — GitHub Actions (analyze + testes + build macOS) | ✅ |
 | 3 — MVP+ (RAM single/dual, saúde SSD, temp, updates) | ⏳ |
-| V1.1 — Cleaner, Updater, FurMark, teste de descarga | ⏳ |
+| V1.1 — Cleaner, Updater, teste térmico de GPU, teste de descarga | ⏳ |
 
 ## Como rodar
 
@@ -78,7 +78,7 @@ O badge no topo do README reflete o status atual da branch `main`.
 
 ## Metodologia do benchmark
 
-Score próprio — **não** clona Geekbench/Cinebench.
+Score próprio — **não** replica suítes de referência de terceiros.
 
 - **CPU:** mistura de inteiros (xorshift), ponto flutuante e acesso a memória local, em janela
   fixa de tempo. Score = Mops/s single-core + Mops/s multi-core.
@@ -95,14 +95,14 @@ Score próprio — **não** clona Geekbench/Cinebench.
   difusa/especular, céu procedural, bloom (bright pass + blur separável em meia
   resolução) e tonemap ACES com gamma. São 5 passes por frame. Mede fps médio e
   frame pacing (1% low e p99).
-- **Score:** frames/s × 100. A conversão para 3DMark Time Spy Graphics usa o teste
-  de **render**; Geekbench 6 Metal usa o teste de **compute**. Ambas são lineares,
+- **Score:** frames/s × 100. A conversão para o score gráfico de referência (rasterização) usa o teste
+  de **render**; o score de compute de referência usa o teste de **compute**. Ambas são lineares,
   calibradas no dispositivo âncora de `assets/data/reference_gpu.json` — são
   estimativas, não resultados oficiais.
 
 Referência medida neste MacBook (Apple M5, 8-core GPU):
 `GPU compute ≈ 263 fps` · `GPU render ≈ 272 fps` · `1% low ≈ 220` · `p99 ≈ 4,6 ms` ·
-scores ≈ 26.3k / 27.3k · conversão estimada `Time Spy ≈ 3.000` · `GB6 Metal ≈ 61.000`.
+scores ≈ 26.3k / 27.3k · conversão estimada `score gráfico de referência ≈ 3.000` · `score de compute de referência ≈ 61.000`.
 `CPU score ≈ 4.872` · `RAM leitura ≈ 35 GB/s` · `latência ≈ 13 ns` · `SSD ≈ 3.7 GB/s leitura`.
 
 ## Armadilhas conhecidas

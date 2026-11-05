@@ -7,7 +7,7 @@
     "owner": "sergio",
     "workingDir": "$HOME/repos/BeMyBench",
     "status": "MVP - aba Estresse: estresse continuo de GPU com curva de fps e deteccao de throttling",
-    "goal": "AIDA64 moderno, cross-platform (macOS, Windows, Linux, Android), com diagnóstico + benchmark + saúde de bateria + auxílio de desempenho.",
+    "goal": "Ferramenta de diagnóstico de hardware moderno, cross-platform (macOS, Windows, Linux, Android), com diagnóstico + benchmark + saúde de bateria + auxílio de desempenho.",
     "stack": {
       "ui": "Flutter 3.47.9 / Dart 3.13.7 (instalado em ../flutter)",
       "benchmarkCore": "Rust 1.99.1 via FFI puro (cdylib), sem flutter_rust_bridge",
@@ -28,20 +28,20 @@
       "MultiProbe",
       "MultiSpec"
     ],
-    "rejectedReason": "MultiBench já existe (EEMBC MultiBench e CMU MultiBench). BMyBench sem conflitos encontrados em 2026-11-05."
+    "rejectedReason": "MultiBench já existe (nome já em uso por outras organizações). BMyBench sem conflitos encontrados em 2026-11-05."
   },
   "requirements": {
     "mvpOriginal": [
       "Suportar macOS, Windows, Linux, Android (package por sistema)",
       "Plataforma touchscreen adaptativa vs app padrão",
       "Testador de bateria do dispositivo (diferencial)",
-      "Testes de memória, GPU e CPU (equivalente Geekbench/Cinebench, score próprio)"
+      "Testes de memória, GPU e CPU (equivalente às suítes de referência de CPU, score próprio)"
     ],
     "futurePerformanceAid": [
       "Diagnóstico RAM e disco: velocidade RAM, single/dual channel (desktop), saúde e velocidade SSD",
       "Limpeza de arquivos temporários por ambiente (Windows temp, Windows Update, shader cache; macOS Library/Caches, Xcode DerivedData; Linux /tmp, ~/.cache, /var/cache/apt; Android cache)",
       "Atualizador de pacotes: winget upgrade --all (Windows), apt/dnf/pacman (Linux), brew/softwareupdate (macOS), verificar via Play Store (Android)",
-      "Benchmark GPU estilo FurMark: cena 3D repetitiva, FPS, monitoramento térmico"
+      "Benchmark GPU de estresse térmico: cena 3D repetitiva, FPS, monitoramento térmico"
     ],
     "nonFunctional": [
       "1 codebase, 4 pacotes",
@@ -73,7 +73,7 @@
       "Teste completo de bateria (descarga 100%->20%, autonomia real)",
       "Limpeza com exclusão segura",
       "Updater 1-clique com admin",
-      "FurMark completo (Metal/Vulkan + proteção térmica)",
+      "Teste térmico completo (Metal/Vulkan + proteção térmica)",
       "Diagnóstico completo RAM/Disco (SMART, TBW)",
       "Relatório PDF/HTML + histórico"
     ]
@@ -325,18 +325,18 @@
       "date": "2026-11-05T12:40",
       "phase": "Benchmark - Base de comparação",
       "done": [
-        "assets/data/reference_cpu.json com 27 dispositivos (Apple, Intel, AMD) e scores publicos aproximados de Cinebench R23 e Geekbench 6",
+        "assets/data/reference_cpu.json com 27 dispositivos (Apple, Intel, AMD) e scores públicos aproximados das suítes de referência de CPU e de compute",
         "reference_db.dart: carrega o JSON via rootBundle, converte score BMyBench em equivalentes lineares calibrados no dispositivo ancora, calcula percentil e equivalente mais proximo",
-        "comparison_panel.dart: pills de equivalentes (CB23 multi/single, GB6 multi, percentil), filtro por fabricante, ranking com barras e linha destacada do usuario",
+        "comparison_panel.dart: pills de equivalentes (score de CPU multi/single, score de compute multi, percentil), filtro por fabricante, ranking com barras e linha destacada do usuario",
         "Aviso explicito de que os valores sao aproximados e nao oficiais",
         "Testes: widget_test atualizado + comparison_test; 2/2 passando"
       ],
       "verified": {
         "devices": 27,
         "estimativasNoMacbook": {
-          "cb23_multi": 24000,
-          "cb23_single": 1900,
-          "gb6_multi": 21000,
+          "score_cpu_multi": 24000,
+          "score_cpu_single": 1900,
+          "score_compute_multi": 21000,
           "percentil": "59%"
         }
       },
@@ -350,9 +350,9 @@
         "Registrado MethodChannel 'bemybench/gpu' em MainFlutterWindow.swift (metodos info e run), execucao em DispatchQueue.global",
         "GpuBenchmark.swift adicionado ao target Runner em project.pbxproj (PBXBuildFile, PBXFileReference, grupo e Sources)",
         "lib/features/benchmark/gpu_benchmark.dart: GpuInfo, GpuBenchResult e GpuBenchmarkService (macOS; contrato preparado para Windows/Linux/Android)",
-        "assets/data/reference_gpu.json: 30 GPUs (Apple, Intel, AMD, NVIDIA) com Time Spy Graphics e GB6 Metal aproximados + ancora Apple M5 (8-core GPU)",
+        "assets/data/reference_gpu.json: 30 GPUs (Apple, Intel, AMD, NVIDIA) com scores gráficos de referência (raster e compute) aproximados + âncora Apple M5 (8-core GPU)",
         "gpu_reference_db.dart: conversao linear calibrada, percentil e GPU equivalente mais proxima",
-        "gpu_comparison_panel.dart: Time Spy/GB6 Metal/fps/percentil, filtro por fabricante e ranking com barra destacada",
+        "gpu_comparison_panel.dart: score gráfico/score de compute/fps/percentil, filtro por fabricante e ranking com barra destacada",
         "BenchmarkScreen: chip GPU habilitado, execucao no fluxo, resultados detalhados e painel de comparacao",
         "HardwareScreen: tile de GPU usa o nome real exposto pelo Metal",
         "Metodologia e status atualizados no README",
@@ -371,7 +371,7 @@
         "flutterAnalyze": "sem erros/warnings",
         "unitTests": "3/3"
       },
-      "caveat": "O numero de Time Spy e uma conversao linear calibrada no ancora (3000 pontos para o M5 8-core). Nao e resultado oficial do 3DMark. O kernel mede compute (nao rasterizacao), entao a correlacao com jogos e limitada."
+      "caveat": "O numero de score gráfico de referência e uma conversao linear calibrada no ancora (3000 pontos para o M5 8-core). Nao e resultado oficial de nenhuma suíte. O kernel mede compute (nao rasterizacao), entao a correlacao com jogos e limitada."
     },
     {
       "date": "2026-11-05T14:05",
@@ -383,8 +383,8 @@
         "MethodChannel bemybench/gpu ganhou o método run_render",
         "GpuBenchResult ganhou kind (compute/render); GpuBenchmarkService.runRender()",
         "reference_gpu.json: âncora separada em compute_fps (262.8) e render_fps (270.8)",
-        "gpu_reference_db.dart: Time Spy estimado pelo render (raster) e GB6 Metal pelo compute",
-        "GpuComparisonPanel unificado com pills de compute, render, Time Spy, GB6 e percentil",
+        "gpu_reference_db.dart: score gráfico de referência estimado pelo render (raster) e score de compute pelo compute",
+        "GpuComparisonPanel unificado com pills de compute, render, score gráfico de referência, score de compute e percentil",
         "BenchmarkScreen: chips separados GPU compute e GPU render, execução no fluxo e resultados detalhados",
         "Integration test cobre info + compute + render no app real"
       ],
@@ -403,7 +403,7 @@
         "flutterAnalyze": "sem erros/warnings",
         "unitTests": "3/3"
       },
-      "caveat": "O teste de render usa um triângulo full-screen com fragment shader procedural. Mede fill rate/shading, não uma cena completa com geometria, sombras ou ray tracing. Time Spy continua sendo conversão linear calibrada."
+      "caveat": "O teste de render usa um triângulo full-screen com fragment shader procedural. Mede fill rate/shading, não uma cena completa com geometria, sombras ou ray tracing. o score gráfico de referência continua sendo conversão linear calibrada."
     },
     {
       "date": "2026-11-05T14:35",
@@ -523,7 +523,7 @@
     "fase1": "EM ANDAMENTO - System Info (macOS real), Bateria (macOS real); faltam Sensores e Storage breakdown",
     "fase2": "Benchmark leve: CPU, Memória, Disco, GPU FPS simples (Rust)",
     "fase3": "MVP+: RAM single/dual informativo, Saúde SSD leitura, Escaneador temp, Verificador updates",
-    "v1_1": "Performance Aid: diagnóstico completo, cleaner seguro, updater, FurMark, relatório"
+    "v1_1": "Performance Aid: diagnóstico completo, cleaner seguro, updater, teste térmico de GPU, relatório"
   },
   "todo": [
     "Referencia: permitir atualizacao remota das bases CPU/GPU e ampliar a cobertura de GPUs integradas",

@@ -1,7 +1,7 @@
 # BMyBench — Planejamento do MVP
 
 **Nome:** BMyBench (*Be My Bench*)
-**Conceito:** Um AIDA64 moderno, cross-platform, com foco em diagnóstico + benchmark + saúde da bateria.
+**Conceito:** Uma ferramenta moderna de diagnóstico de hardware, cross-platform, com foco em diagnóstico + benchmark + saúde da bateria.
 **Plataformas MVP:** macOS, Windows, Linux e Android — 1 codebase, 4 pacotes.
 
 ---
@@ -11,7 +11,7 @@
 Não é só listar hardware. É um ciclo:
 **Diagnosticar → Medir → (no futuro) Limpar/Atualizar → Medir de novo**
 
-Isso posiciona o BMyBench acima do AIDA64 (só leitura) e do Geekbench/Cinebench (só score).
+Isso posiciona o BMyBench além das ferramentas de diagnóstico (só leitura) e das suítes de referência (só score).
 
 ---
 
@@ -21,13 +21,13 @@ Isso posiciona o BMyBench acima do AIDA64 (só leitura) e do Geekbench/Cinebench
 1. Multi-plataforma: macOS, Windows, Linux, Android
 2. Layout adaptativo: touchscreen vs. app padrão
 3. Testador de bateria (diferencial)
-4. Testes de CPU, GPU e Memória (equivalente a Geekbench/Cinebench, sem usar as marcas)
+4. Testes de CPU, GPU e Memória (equivalente às suítes de referência, sem usar as marcas)
 
 ### Funções futuras propostas
 5. Diagnóstico RAM + Disco (single/dual channel, saúde SSD, velocidade)
 6. Limpeza de arquivos temporários (por ambiente)
 7. Atualizador de pacotes/sistema (`winget upgrade --all`, `apt upgrade`, etc.)
-8. Benchmark GPU estilo FurMark (cena 3D repetitiva, monitoramento térmico)
+8. Benchmark GPU de estresse térmico (cena 3D repetitiva, monitoramento térmico)
 
 ---
 
@@ -50,13 +50,13 @@ Cada função foi avaliada por:
 
 | # | Função | Esforço | Por que entra |
 |---|--------|---------|---------------|
-| 1 | **System Info** (CPU, GPU, RAM total, disco, OS, tela, rede) | Médio | Coração do AIDA64. Barato com Flutter + canais nativos. |
+| 1 | **System Info** (CPU, GPU, RAM total, disco, OS, tela, rede) | Médio | Coração de qualquer ferramenta de diagnóstico de hardware. Barato com Flutter + canais nativos. |
 | 2 | **Sensores básicos** (temperatura CPU/GPU quando disponível, uso CPU/RAM em tempo real, ventilação quando disponível) | Médio | Esperado em app desse tipo. No macOS limitaríamos ao que a Apple permite (via IOKit/sysctl). |
 | 3 | **Bateria — Diagnóstico de saúde** (%, ciclos, capacidade design vs. atual, tensão, status, tempo estimado) | Médio | Seu diferencial. Leitura é simples: `ioreg` (macOS), WMI (Windows), `/sys/class/power_supply` (Linux), `BatteryManager` (Android). |
-| 4 | **Benchmark CPU — Leve** (single-core + multi-core, contagem de operações, hash/física) | Médio | Score próprio, não clonar Geekbench. Pode rodar em Rust/isolate para não travar UI. |
-| 5 | **Benchmark Memória — Leve** (velocidade GB/s de leitura/escrita, latência básica) | Médio | Reaproveita o teste de CPU. Sem ele, não tem comparação Geekbench/Cinebench. |
+| 4 | **Benchmark CPU — Leve** (single-core + multi-core, contagem de operações, hash/física) | Médio | Score próprio, sem replicar suítes de terceiros. Pode rodar em Rust/isolate para não travar UI. |
+| 5 | **Benchmark Memória — Leve** (velocidade GB/s de leitura/escrita, latência básica) | Médio | Reaproveita o teste de CPU. Sem ele, não há comparação com as suítes de referência. |
 | 6 | **Benchmark Disco — Leve** (leitura/escrita sequencial em arquivo temporário) | Baixo | Simples e muito útil. Já cobre parte do item 5 futuro. |
-| 7 | **GPU Info + Teste FPS simples** (nome, VRAM/unificada, FPS de render off-screen 5-10s) | Baixo/Médio | Nome da GPU é fácil na System Info. FPS simples c/ Metal/Vulkan/OpenGL dá um score sem precisar do FurMark completo. |
+| 7 | **GPU Info + Teste FPS simples** (nome, VRAM/unificada, FPS de render off-screen 5-10s) | Baixo/Médio | Nome da GPU é fácil na System Info. FPS simples c/ Metal/Vulkan/OpenGL dá um score sem precisar do teste de estresse térmico completo. |
 | 8 | **Detecção Touch** (botões maiores, gestos, layout adaptativo) | Baixo | Flutter já detecta `PointerDeviceKind.touch`. Só aplicar tema/layout condicional. |
 | 9 | **Storage Breakdown (somente leitura)** (quanto ocupa app, temp, sistema) | Baixo | Metade do "limpador" sem risco. Mostra espaço, não apaga nada. |
 
@@ -80,7 +80,7 @@ Essas foram pensadas para a “segunda leva”, mas são tão simples que valem 
 | **Teste completo de bateria** (descarga real 100%→20%, autonomia real) | Demora horas, precisa de controle de brilho/carga, difícil de validar em todos os sistemas. O diagnóstico de saúde já entrega 80% do valor. |
 | **Limpeza com exclusão** | Risco alto: apagar errado quebra app/sistema. Precisa whitelist, confirmação, ponto de restauração (Windows), sudo/admin, e cuidados com Play Store/App Store. |
 | **Atualizador 1-clique** (`winget upgrade --all`, `apt upgrade`) | Simples de chamar, complexo de fazer bem: streaming de output, pedir admin, lidar com erro, detectar distro (Debian/RHEL/Arch), aprovação do usuário. |
-| **FurMark completo** (cena 3D pesada + throttling) | O mais complexo: shader/tessellation em Metal+Vulkan, limite térmico automático, risco de esquentar a GPU. O FPS simples do MVP já valida a pipeline. |
+| **Teste térmico completo** (cena 3D pesada + throttling) | O mais complexo: shader/tessellation em Metal+Vulkan, limite térmico automático, risco de esquentar a GPU. O FPS simples do MVP já valida a pipeline. |
 
 ---
 
@@ -132,7 +132,7 @@ BMyBench/
 - [ ] Navegação: Sistema | Sensores | Bateria | Benchmark
 - [ ] Builds gerando os 4 pacotes
 
-### Fase 1 — Núcleo AIDA (semana 2)
+### Fase 1 — Núcleo de diagnóstico (semana 2)
 - [ ] System Info (todas as plataformas)
 - [ ] Sensores básicos (tempo real)
 - [ ] Bateria — saúde (c. 4.1 §3)
@@ -155,7 +155,7 @@ BMyBench/
 - [ ] Diagnóstico completo RAM/Disco (SMART, TBW)
 - [ ] Limpeza segura (whitelist + confirmação)
 - [ ] Updater 1-clique com admin
-- [ ] FurMark (Metal/Vulkan + proteção térmica)
+- [ ] Teste de estresse térmico de GPU (Metal/Vulkan + proteção térmica)
 - [ ] Teste de bateria com descarga real + relatório PDF/HTML
 
 ---
@@ -168,8 +168,8 @@ BMyBench/
 | **Android/Play Store** restritivo p/ “limpeza” | Rejeição na loja | Distribuir via site/APK direto; MVP sem exclusão já resolve |
 | **Cleaner apagar errado** | Quebra sistema | MVP só escaneia; V1.1 com whitelist + confirmação + restauração |
 | **Updater sem admin** | Falha silenciosa | Permissão elevada com consentimento explícito |
-| **FurMark esquentar GPU** | Throttling/dano percebido | Limite de tempo, parada automática por temperatura |
-| **Scores não comparáveis** entre sistemas | Confusão de usuário | Motor em Rust + metodologia própria documentada, não “Geekbench” |
+| **GPU esquentar** | Throttling/dano percebido | Limite de tempo, parada automática por temperatura |
+| **Scores não comparáveis** entre sistemas | Confusão de usuário | Motor em Rust + metodologia própria documentada, sem nomes de suítes de terceiros |
 
 ---
 

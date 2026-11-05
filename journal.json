@@ -565,6 +565,12 @@
         "unitTests": "12/12"
       },
       "decision": "Historico salvo localmente sem plugins; escrita atomica e leitura tolerante a corrupcao; nada sai da maquina"
+    },
+    {
+      "date": "2026-11-06",
+      "phase": "Iteração 3 - Janela 3D/GPU (Metal/Vulkan) + HUD na janela",
+      "decision": "janela flutuante sobre o app com render 3D tipo FurMark, VSync off, combobox Benchmark/Stress, HUD dentro da janela 3D (GPU Name, %, Clock, V-RAM, Temperature, FPS)",
+      "status": "planning"
     }
   ],
   "roadmap": {
@@ -585,7 +591,10 @@
     "Implementar BatteryService para Windows/Linux/Android",
     "Implementar System Info de GPU (system_profiler no macOS)",
     "Storage breakdown (df -h por volume no macOS)",
-    "Remover aviso de stale file (flutter clean) e ajustar const lints"
+    "Remover aviso de stale file (flutter clean) e ajustar const lints",
+    "janela 3D Metal/Vulkan",
+    "HUD dentro da janela",
+    "Vulkan demais OS"
   ],
   "openQuestions": [
     "Nome de display final (BMyBench vs Be My Bench) para ícone/splash",

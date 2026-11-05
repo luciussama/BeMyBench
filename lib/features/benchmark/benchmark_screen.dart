@@ -9,6 +9,8 @@ import '../sensors/sensors_service.dart';
 import 'benchmark_models.dart';
 import 'benchmark_runner.dart';
 import 'comparison_panel.dart';
+import 'gpu_benchmark.dart';
+import 'gpu_comparison_panel.dart';
 
 class BenchmarkScreen extends StatefulWidget {
   const BenchmarkScreen({super.key});
@@ -20,7 +22,12 @@ class BenchmarkScreen extends StatefulWidget {
 class _BenchmarkScreenState extends State<BenchmarkScreen> {
   final _sensors = SensorsService();
 
-  final Set<String> _selected = {'cpu', 'mem', 'disk'};
+  final Set<String> _selected = {
+    'cpu',
+    'mem',
+    'disk',
+    if (GpuBenchmarkService.isSupported) 'gpu',
+  };
 
   bool _running = false;
   String _current = '';
@@ -29,6 +36,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
   CpuBenchResult? _cpu;
   MemoryBenchResult? _mem;
   DiskBenchResult? _disk;
+  GpuBenchResult? _gpu;
 
   int _done = 0;
   int _elapsedSec = 0;
@@ -64,7 +72,10 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
   }
 
   double get _totalScore =>
-      (_cpu?.score ?? 0) + (_mem?.score ?? 0) + (_disk?.score ?? 0);
+      (_cpu?.score ?? 0) +
+      (_mem?.score ?? 0) +
+      (_disk?.score ?? 0) +
+      (_gpu?.score ?? 0);
 
   String _fmtScore(double v) {
     if (v >= 100000) return '${(v / 1000).toStringAsFixed(0)}k';
@@ -89,6 +100,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
       _cpu = null;
       _mem = null;
       _disk = null;
+      _gpu = null;
       _current = '';
     });
 
@@ -122,6 +134,15 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
         if (!mounted) return;
         setState(() {
           _disk = r;
+          _done++;
+        });
+      }
+      if (_selected.contains('gpu')) {
+        setState(() => _current = 'GPU');
+        final r = await GpuBenchmarkService().run(durationMs: 1500);
+        if (!mounted) return;
+        setState(() {
+          _gpu = r;
           _done++;
         });
       }
@@ -179,8 +200,9 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
             eyebrowColor: AppColors.accent,
             title: 'Benchmark de hardware',
             description:
-                'Executa os testes selecionados em sequência, medindo CPU, memória e disco '
-                'com score próprio. O gráfico abaixo mostra a atividade real da CPU.',
+                'Executa os testes selecionados em sequência, medindo CPU, memória, disco '
+                'e GPU (Metal off-screen) com score próprio. O gráfico abaixo mostra a '
+                'atividade real da CPU.',
             action: GradientActionButton(
               label: _running ? 'EXECUTANDO...' : 'INICIAR TESTES',
               icon: _running ? Icons.hourglass_top : Icons.play_arrow,
@@ -217,10 +239,13 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
               onTap: () => _toggle('disk'),
             ),
             FeatureChip(
-              label: 'GPU (em breve)',
+              label: GpuBenchmarkService.isSupported
+                  ? 'GPU (Metal off-screen)'
+                  : 'GPU (em breve)',
               color: AppColors.violet,
-              selected: false,
-              enabled: false,
+              selected: _selected.contains('gpu'),
+              enabled: !_running && GpuBenchmarkService.isSupported,
+              onTap: () => _toggle('gpu'),
             ),
           ],
         ),
@@ -301,10 +326,14 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
 
         // ---------------- Resultados detalhados ----------------
         if (_done > 0) ...[
-          _ResultsPanel(cpu: _cpu, mem: _mem, disk: _disk),
+          _ResultsPanel(cpu: _cpu, mem: _mem, disk: _disk, gpu: _gpu),
           if (_cpu != null) ...[
             const SizedBox(height: 16),
             ComparisonPanel(cpu: _cpu!),
+          ],
+          if (_gpu != null) ...[
+            const SizedBox(height: 16),
+            GpuComparisonPanel(gpu: _gpu!),
           ],
         ],
       ],
@@ -324,8 +353,9 @@ class _ResultsPanel extends StatelessWidget {
   final CpuBenchResult? cpu;
   final MemoryBenchResult? mem;
   final DiskBenchResult? disk;
+  final GpuBenchResult? gpu;
 
-  const _ResultsPanel({this.cpu, this.mem, this.disk});
+  const _ResultsPanel({this.cpu, this.mem, this.disk, this.gpu});
 
   @override
   Widget build(BuildContext context) {
@@ -368,6 +398,16 @@ class _ResultsPanel extends StatelessWidget {
             _row('Disco escrita', '${disk!.writeMbps.toStringAsFixed(0)} MB/s'),
             _row('Disco leitura', '${disk!.readMbps.toStringAsFixed(0)} MB/s'),
             _row('Disco score', disk!.score.toStringAsFixed(0), strong: true),
+          ],
+          if (gpu != null) ...[
+            const Divider(height: 22),
+            _row('GPU', gpu!.device),
+            _row('GPU frames/s', '${gpu!.fps.toStringAsFixed(1)} fps'),
+            _row(
+              'GPU resolução',
+              '${gpu!.width}x${gpu!.height} · ${gpu!.iterations} iter',
+            ),
+            _row('GPU score', gpu!.score.toStringAsFixed(0), strong: true),
           ],
         ],
       ),

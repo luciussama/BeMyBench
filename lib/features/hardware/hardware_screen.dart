@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../battery/battery_service.dart';
+import '../benchmark/gpu_benchmark.dart';
 import '../sensors/sensors_service.dart';
 import 'hardware_service.dart';
 
@@ -26,6 +27,7 @@ class _HardwareScreenState extends State<HardwareScreen> {
   HardwareInfo? _info;
   SensorsSnapshot? _sensors;
   BatteryInfo? _battery;
+  GpuInfo? _gpuInfo;
   Timer? _timer;
   bool _loading = true;
 
@@ -46,11 +48,13 @@ class _HardwareScreenState extends State<HardwareScreen> {
     final info = await _hardwareService.collect();
     final sensors = await _sensorsService.collect();
     final battery = await _batteryService.collect();
+    final gpu = await GpuBenchmarkService().info();
     if (!mounted) return;
     setState(() {
       _info = info;
       _sensors = sensors;
       _battery = battery;
+      _gpuInfo = gpu;
       _loading = false;
     });
   }
@@ -88,6 +92,7 @@ class _HardwareScreenState extends State<HardwareScreen> {
               sensors: _sensors,
               info: _info!,
               battery: _battery,
+              gpu: _gpuInfo,
             ),
             const SizedBox(height: 22),
             if (wide)
@@ -262,12 +267,14 @@ class _StatusTiles extends StatelessWidget {
   final SensorsSnapshot? sensors;
   final HardwareInfo info;
   final BatteryInfo? battery;
+  final GpuInfo? gpu;
 
   const _StatusTiles({
     required this.wide,
     required this.sensors,
     required this.info,
     required this.battery,
+    this.gpu,
   });
 
   @override
@@ -302,8 +309,11 @@ class _StatusTiles extends StatelessWidget {
         icon: Icons.view_in_ar,
         iconColor: AppColors.violet,
         label: 'GPU',
-        value: info.chip.replaceAll('Apple ', ''),
-        trailing: 'unificada',
+        value: gpu?.name.replaceAll('Apple ', '') ??
+            info.chip.replaceAll('Apple ', ''),
+        trailing: gpu == null
+            ? 'unificada'
+            : (gpu!.unifiedMemory ? 'unificada' : 'dedicada'),
         progress: null,
         progressColor: AppColors.violet,
       ),

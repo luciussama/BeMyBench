@@ -6,12 +6,12 @@
     "created": "2026-11-05",
     "owner": "sergio",
     "workingDir": "$HOME/repos/BeMyBench",
-    "status": "MVP - Fase 0/1/2 concluídas; comparação com base de referência (Cinebench/Geekbench)",
+    "status": "MVP - Fase 0/1/2 concluídas; benchmark de GPU Metal + comparação (Time Spy/Geekbench 6 Metal)",
     "goal": "AIDA64 moderno, cross-platform (macOS, Windows, Linux, Android), com diagnóstico + benchmark + saúde de bateria + auxílio de desempenho.",
     "stack": {
       "ui": "Flutter 3.47.9 / Dart 3.13.7 (instalado em ../flutter)",
       "benchmarkCore": "Rust 1.99.1 via FFI puro (cdylib), sem flutter_rust_bridge",
-      "macosNative": "Swift + IOKit (planejado)",
+      "macosNative": "Swift + Metal (GpuBenchmark.swift, MethodChannel bemybench/gpu)",
       "windowsNative": "C++/WMI (planejado)",
       "linuxNative": "/proc, sysctl, nvme, dmidecode (planejado)",
       "androidNative": "Kotlin + BatteryManager (planejado)",
@@ -341,6 +341,37 @@
         }
       },
       "caveat": "Base curada manualmente com numeros publicos arredondados (2024/2026). Futuro: atualizar via JSON remoto e permitir contribuicoes da comunidade."
+    },
+    {
+      "date": "2026-11-05T13:20",
+      "phase": "Benchmark - GPU Metal + comparação",
+      "done": [
+        "macos/Runner/GpuBenchmark.swift: kernel Metal de compute (FMA + sin/cos/sqrt) off-screen em 1920x1080, compilado em runtime via device.makeLibrary(source:), medido pelo gpuStartTime/gpuEndTime do command buffer",
+        "Registrado MethodChannel 'bemybench/gpu' em MainFlutterWindow.swift (metodos info e run), execucao em DispatchQueue.global",
+        "GpuBenchmark.swift adicionado ao target Runner em project.pbxproj (PBXBuildFile, PBXFileReference, grupo e Sources)",
+        "lib/features/benchmark/gpu_benchmark.dart: GpuInfo, GpuBenchResult e GpuBenchmarkService (macOS; contrato preparado para Windows/Linux/Android)",
+        "assets/data/reference_gpu.json: 30 GPUs (Apple, Intel, AMD, NVIDIA) com Time Spy Graphics e GB6 Metal aproximados + ancora Apple M5 (8-core GPU)",
+        "gpu_reference_db.dart: conversao linear calibrada, percentil e GPU equivalente mais proxima",
+        "gpu_comparison_panel.dart: Time Spy/GB6 Metal/fps/percentil, filtro por fabricante e ranking com barra destacada",
+        "BenchmarkScreen: chip GPU habilitado, execucao no fluxo, resultados detalhados e painel de comparacao",
+        "HardwareScreen: tile de GPU usa o nome real exposto pelo Metal",
+        "Metodologia e status atualizados no README",
+        "Integration test real do canal Metal passando; 3 testes unitarios/widget passando"
+      ],
+      "verified": {
+        "gpu": {
+          "device": "Apple M5 (8-core GPU)",
+          "resolution": "1920x1080",
+          "iterations": 48,
+          "fps": 262.53,
+          "frames": 196,
+          "score": 26253.2
+        },
+        "integrationTest": "integration_test/gpu_channel_test.dart (flutter test -d macos)",
+        "flutterAnalyze": "sem erros/warnings",
+        "unitTests": "3/3"
+      },
+      "caveat": "O numero de Time Spy e uma conversao linear calibrada no ancora (3000 pontos para o M5 8-core). Nao e resultado oficial do 3DMark. O kernel mede compute (nao rasterizacao), entao a correlacao com jogos e limitada."
     }
   ],
   "roadmap": {
@@ -351,7 +382,7 @@
     "v1_1": "Performance Aid: diagnóstico completo, cleaner seguro, updater, FurMark, relatório"
   },
   "todo": [
-    "Referencia: permitir atualizacao remota da base e incluir GPUs (FurMark/3DMark) quando o bench de GPU existir",
+    "Referencia: permitir atualizacao remota das bases CPU/GPU e ampliar a cobertura de GPUs integradas",
     "Implementar GPU info + FPS simples (Metal)",
     "Storage breakdown (df -h por volume)",
     "BatteryService Windows/Linux/Android",

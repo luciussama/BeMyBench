@@ -1,0 +1,46 @@
+{
+  "schema": "bmybench/reference-gpu/v1",
+  "updated": "2026-11",
+  "disclaimer": "Valores de referencia aproximados, compilados de benchmarks publicos (3DMark Time Spy Graphics e Geekbench 6 Metal) e arredondados. Nao sao resultados oficiais. 3DMark e Geekbench pertencem aos seus respectivos proprietarios.",
+  "anchor": {
+    "device": "Apple M5 (8-core GPU)",
+    "bmb_fps": 263.47,
+    "time_spy_graphics": 3000,
+    "gb6_metal": 61000
+  },
+  "devices": [
+    {"name": "Apple M1 (8-core GPU)", "vendor": "Apple", "segment": "laptop", "year": 2020, "gpu_cores": 8, "time_spy": 1250, "gb6_metal": 21000},
+    {"name": "Apple M1 Pro (16-core GPU)", "vendor": "Apple", "segment": "laptop", "year": 2021, "gpu_cores": 16, "time_spy": 2700, "gb6_metal": 42000},
+    {"name": "Apple M1 Max (32-core GPU)", "vendor": "Apple", "segment": "laptop", "year": 2021, "gpu_cores": 32, "time_spy": 5200, "gb6_metal": 80000},
+    {"name": "Apple M2 (10-core GPU)", "vendor": "Apple", "segment": "laptop", "year": 2022, "gpu_cores": 10, "time_spy": 1800, "gb6_metal": 35000},
+    {"name": "Apple M2 Pro (19-core GPU)", "vendor": "Apple", "segment": "laptop", "year": 2023, "gpu_cores": 19, "time_spy": 3600, "gb6_metal": 62000},
+    {"name": "Apple M2 Max (38-core GPU)", "vendor": "Apple", "segment": "laptop", "year": 2023, "gpu_cores": 38, "time_spy": 7200, "gb6_metal": 125000},
+    {"name": "Apple M3 (10-core GPU)", "vendor": "Apple", "segment": "laptop", "year": 2023, "gpu_cores": 10, "time_spy": 2300, "gb6_metal": 48000},
+    {"name": "Apple M3 Pro (18-core GPU)", "vendor": "Apple", "segment": "laptop", "year": 2023, "gpu_cores": 18, "time_spy": 4800, "gb6_metal": 80000},
+    {"name": "Apple M3 Max (40-core GPU)", "vendor": "Apple", "segment": "laptop", "year": 2023, "gpu_cores": 40, "time_spy": 9500, "gb6_metal": 160000},
+    {"name": "Apple M4 (10-core GPU)", "vendor": "Apple", "segment": "laptop", "year": 2024, "gpu_cores": 10, "time_spy": 2600, "gb6_metal": 57800},
+    {"name": "Apple M4 Pro (20-core GPU)", "vendor": "Apple", "segment": "laptop", "year": 2024, "gpu_cores": 20, "time_spy": 6000, "gb6_metal": 110000},
+    {"name": "Apple M4 Max (40-core GPU)", "vendor": "Apple", "segment": "laptop", "year": 2024, "gpu_cores": 40, "time_spy": 11000, "gb6_metal": 190000},
+    {"name": "Apple M5 (8-core GPU)", "vendor": "Apple", "segment": "laptop", "year": 2025, "gpu_cores": 8, "time_spy": 3000, "gb6_metal": 61000},
+    {"name": "Apple M5 (10-core GPU)", "vendor": "Apple", "segment": "laptop", "year": 2025, "gpu_cores": 10, "time_spy": 3200, "gb6_metal": 76275},
+
+    {"name": "Intel Iris Xe Graphics (80EU)", "vendor": "Intel", "segment": "integrated", "year": 2020, "gpu_cores": 80, "time_spy": 1230, "gb6_metal": 14000},
+    {"name": "Intel Arc 140V", "vendor": "Intel", "segment": "integrated", "year": 2024, "gpu_cores": 8, "time_spy": 3700, "gb6_metal": 30000},
+    {"name": "Intel Arc A770 (16GB)", "vendor": "Intel", "segment": "desktop", "year": 2022, "gpu_cores": 512, "time_spy": 13500, "gb6_metal": 100000},
+
+    {"name": "AMD Radeon 780M", "vendor": "AMD", "segment": "integrated", "year": 2023, "gpu_cores": 12, "time_spy": 2800, "gb6_metal": 30000},
+    {"name": "AMD Radeon RX 6700 XT", "vendor": "AMD", "segment": "desktop", "year": 2021, "gpu_cores": 40, "time_spy": 11000, "gb6_metal": 90000},
+    {"name": "AMD Radeon RX 7800 XT", "vendor": "AMD", "segment": "desktop", "year": 2023, "gpu_cores": 60, "time_spy": 20000, "gb6_metal": 140000},
+
+    {"name": "NVIDIA GeForce RTX 3060 Laptop", "vendor": "NVIDIA", "segment": "laptop", "year": 2021, "gpu_cores": 3840, "time_spy": 7800, "gb6_metal": 90000},
+    {"name": "NVIDIA GeForce RTX 4060 Laptop", "vendor": "NVIDIA", "segment": "laptop", "year": 2023, "gpu_cores": 3072, "time_spy": 10500, "gb6_metal": 100000},
+    {"name": "NVIDIA GeForce RTX 4070 Laptop", "vendor": "NVIDIA", "segment": "laptop", "year": 2023, "gpu_cores": 4608, "time_spy": 12500, "gb6_metal": 118000},
+    {"name": "NVIDIA GeForce RTX 4080 Laptop", "vendor": "NVIDIA", "segment": "laptop", "year": 2023, "gpu_cores": 7424, "time_spy": 17500, "gb6_metal": 145000},
+    {"name": "NVIDIA GeForce RTX 4090 Laptop", "vendor": "NVIDIA", "segment": "laptop", "year": 2023, "gpu_cores": 9728, "time_spy": 22000, "gb6_metal": 180000},
+    {"name": "NVIDIA GeForce RTX 3060 (12GB)", "vendor": "NVIDIA", "segment": "desktop", "year": 2021, "gpu_cores": 3584, "time_spy": 8700, "gb6_metal": 95000},
+    {"name": "NVIDIA GeForce RTX 4060 (8GB)", "vendor": "NVIDIA", "segment": "desktop", "year": 2023, "gpu_cores": 3072, "time_spy": 11500, "gb6_metal": 105000},
+    {"name": "NVIDIA GeForce RTX 4070 (12GB)", "vendor": "NVIDIA", "segment": "desktop", "year": 2023, "gpu_cores": 5888, "time_spy": 18000, "gb6_metal": 135000},
+    {"name": "NVIDIA GeForce RTX 4080 (16GB)", "vendor": "NVIDIA", "segment": "desktop", "year": 2022, "gpu_cores": 9728, "time_spy": 28000, "gb6_metal": 200000},
+    {"name": "NVIDIA GeForce RTX 4090 (24GB)", "vendor": "NVIDIA", "segment": "desktop", "year": 2022, "gpu_cores": 16384, "time_spy": 36000, "gb6_metal": 260000}
+  ]
+}

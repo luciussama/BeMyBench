@@ -24,7 +24,7 @@
 | 1 — Bateria (macOS real) | ✅ |
 | 1 — Sensores CPU/RAM (macOS/Linux) | ✅ |
 | 2 — Benchmarks CPU/Memória/Disco | ✅ |
-| 2 — GPU info + FPS | ⏳ |
+| 2 — GPU Metal (off-screen) + comparação | ✅ |
 | 3 — MVP+ (RAM single/dual, saúde SSD, temp, updates) | ⏳ |
 | V1.1 — Cleaner, Updater, FurMark, teste de descarga | ⏳ |
 
@@ -64,8 +64,14 @@ Score próprio — **não** clona Geekbench/Cinebench.
 - **Memória:** banda sequencial de escrita/leitura/cópia (GB/s) + latência de acesso aleatório
   via pointer chasing (ns).
 - **Disco:** leitura/escrita sequencial em arquivo temporário, removido ao final.
+- **GPU (macOS):** kernel Metal de compute (FMA + sin/cos/sqrt) sobre 1920×1080
+  off-screen, medido pelo tempo de GPU do command buffer. Score = frames/s × 100.
+  A conversão para 3DMark Time Spy Graphics / Geekbench 6 Metal é linear, calibrada
+  no dispositivo âncora de `assets/data/reference_gpu.json` — é estimativa, não
+  resultado oficial.
 
-Referência medida neste MacBook (16 GB, Apple Silicon, 10 threads):
+Referência medida neste MacBook (Apple M5, 8-core GPU):
+`GPU ≈ 263 fps` · `score ≈ 26.347` · conversão estimada `Time Spy ≈ 3.000`.
 `CPU score ≈ 4.872` · `RAM leitura ≈ 35 GB/s` · `latência ≈ 13 ns` · `SSD ≈ 3.7 GB/s leitura`.
 
 ## Armadilhas conhecidas
@@ -84,9 +90,11 @@ lib/
     native/native_core.dart      # FFI: carrega a dylib Rust
     platform/platform_detector.dart
     theme/app_theme.dart         # touch vs desktop
+    widgets/dashboard.dart       # painéis, tiles, chips e gráficos
   features/
     system_info/  sensors/  battery/  benchmark/
     performance/                 # stubs V1.1 (cleaner, updater, ram_disk)
+macos/Runner/GpuBenchmark.swift  # kernel Metal off-screen (MethodChannel)
 rust/src/lib.rs                  # CPU + memória (C ABI)
 tool/                            # probes e package_macos.sh
 docs/                            # planejamento

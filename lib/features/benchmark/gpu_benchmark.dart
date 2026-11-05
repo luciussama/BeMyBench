@@ -10,6 +10,7 @@ class GpuInfo {
   final int maxThreadsPerGroup;
   final int width;
   final int height;
+  final bool renderAvailable;
 
   const GpuInfo({
     required this.name,
@@ -18,6 +19,7 @@ class GpuInfo {
     required this.maxThreadsPerGroup,
     required this.width,
     required this.height,
+    required this.renderAvailable,
   });
 
   factory GpuInfo.fromMap(Map<String, dynamic> map) => GpuInfo(
@@ -29,11 +31,13 @@ class GpuInfo {
             (map['max_threads_per_group'] as num?)?.toInt() ?? 0,
         width: (map['width'] as num?)?.toInt() ?? 1920,
         height: (map['height'] as num?)?.toInt() ?? 1080,
+        renderAvailable: (map['render_available'] as bool?) ?? false,
       );
 }
 
-/// Resultado do benchmark de GPU (kernel Metal off-screen).
+/// Resultado do benchmark de GPU (compute ou render).
 class GpuBenchResult {
+  final String kind;
   final String device;
   final int width;
   final int height;
@@ -45,6 +49,7 @@ class GpuBenchResult {
   final double score;
 
   const GpuBenchResult({
+    this.kind = 'compute',
     required this.device,
     required this.width,
     required this.height,
@@ -56,7 +61,10 @@ class GpuBenchResult {
     required this.score,
   });
 
+  bool get isRender => kind == 'render';
+
   factory GpuBenchResult.fromMap(Map<String, dynamic> map) => GpuBenchResult(
+        kind: (map['kind'] as String?) ?? 'compute',
         device: (map['device'] as String?) ?? 'GPU',
         width: (map['width'] as num?)?.toInt() ?? 1920,
         height: (map['height'] as num?)?.toInt() ?? 1080,
@@ -103,6 +111,23 @@ class GpuBenchmarkService {
     );
     if (map == null) {
       throw StateError('A GPU não retornou resultado.');
+    }
+    return GpuBenchResult.fromMap(map);
+  }
+
+  /// Benchmark de renderização (pipeline gráfico + fragment shader).
+  Future<GpuBenchResult> runRender({int durationMs = 1500}) async {
+    if (!isSupported) {
+      throw UnsupportedError(
+        'O benchmark de GPU está disponível apenas no macOS nesta versão.',
+      );
+    }
+    final map = await _channel.invokeMapMethod<String, dynamic>(
+      'run_render',
+      {'duration_ms': durationMs},
+    );
+    if (map == null) {
+      throw StateError('A GPU não retornou resultado de renderização.');
     }
     return GpuBenchResult.fromMap(map);
   }

@@ -27,6 +27,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     'mem',
     'disk',
     if (GpuBenchmarkService.isSupported) 'gpu',
+    if (GpuBenchmarkService.isSupported) 'gpu_render',
   };
 
   bool _running = false;
@@ -36,7 +37,8 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
   CpuBenchResult? _cpu;
   MemoryBenchResult? _mem;
   DiskBenchResult? _disk;
-  GpuBenchResult? _gpu;
+  GpuBenchResult? _gpuCompute;
+  GpuBenchResult? _gpuRender;
 
   int _done = 0;
   int _elapsedSec = 0;
@@ -75,7 +77,8 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
       (_cpu?.score ?? 0) +
       (_mem?.score ?? 0) +
       (_disk?.score ?? 0) +
-      (_gpu?.score ?? 0);
+      (_gpuCompute?.score ?? 0) +
+      (_gpuRender?.score ?? 0);
 
   String _fmtScore(double v) {
     if (v >= 100000) return '${(v / 1000).toStringAsFixed(0)}k';
@@ -100,7 +103,8 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
       _cpu = null;
       _mem = null;
       _disk = null;
-      _gpu = null;
+      _gpuCompute = null;
+      _gpuRender = null;
       _current = '';
     });
 
@@ -138,11 +142,20 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
         });
       }
       if (_selected.contains('gpu')) {
-        setState(() => _current = 'GPU');
+        setState(() => _current = 'GPU compute');
         final r = await GpuBenchmarkService().run(durationMs: 1500);
         if (!mounted) return;
         setState(() {
-          _gpu = r;
+          _gpuCompute = r;
+          _done++;
+        });
+      }
+      if (_selected.contains('gpu_render')) {
+        setState(() => _current = 'GPU render');
+        final r = await GpuBenchmarkService().runRender(durationMs: 1500);
+        if (!mounted) return;
+        setState(() {
+          _gpuRender = r;
           _done++;
         });
       }
@@ -201,8 +214,8 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
             title: 'Benchmark de hardware',
             description:
                 'Executa os testes selecionados em sequência, medindo CPU, memória, disco '
-                'e GPU (Metal off-screen) com score próprio. O gráfico abaixo mostra a '
-                'atividade real da CPU.',
+                'e GPU (compute + renderização Metal off-screen) com score próprio. O '
+                'gráfico abaixo mostra a atividade real da CPU.',
             action: GradientActionButton(
               label: _running ? 'EXECUTANDO...' : 'INICIAR TESTES',
               icon: _running ? Icons.hourglass_top : Icons.play_arrow,
@@ -240,12 +253,21 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
             ),
             FeatureChip(
               label: GpuBenchmarkService.isSupported
-                  ? 'GPU (Metal off-screen)'
-                  : 'GPU (em breve)',
+                  ? 'GPU compute (Metal)'
+                  : 'GPU compute (em breve)',
               color: AppColors.violet,
               selected: _selected.contains('gpu'),
               enabled: !_running && GpuBenchmarkService.isSupported,
               onTap: () => _toggle('gpu'),
+            ),
+            FeatureChip(
+              label: GpuBenchmarkService.isSupported
+                  ? 'GPU render (jogos)'
+                  : 'GPU render (em breve)',
+              color: AppColors.red,
+              selected: _selected.contains('gpu_render'),
+              enabled: !_running && GpuBenchmarkService.isSupported,
+              onTap: () => _toggle('gpu_render'),
             ),
           ],
         ),
@@ -326,14 +348,23 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
 
         // ---------------- Resultados detalhados ----------------
         if (_done > 0) ...[
-          _ResultsPanel(cpu: _cpu, mem: _mem, disk: _disk, gpu: _gpu),
+          _ResultsPanel(
+            cpu: _cpu,
+            mem: _mem,
+            disk: _disk,
+            gpuCompute: _gpuCompute,
+            gpuRender: _gpuRender,
+          ),
           if (_cpu != null) ...[
             const SizedBox(height: 16),
             ComparisonPanel(cpu: _cpu!),
           ],
-          if (_gpu != null) ...[
+          if (_gpuCompute != null || _gpuRender != null) ...[
             const SizedBox(height: 16),
-            GpuComparisonPanel(gpu: _gpu!),
+            GpuComparisonPanel(
+              compute: _gpuCompute,
+              render: _gpuRender,
+            ),
           ],
         ],
       ],
@@ -353,9 +384,16 @@ class _ResultsPanel extends StatelessWidget {
   final CpuBenchResult? cpu;
   final MemoryBenchResult? mem;
   final DiskBenchResult? disk;
-  final GpuBenchResult? gpu;
+  final GpuBenchResult? gpuCompute;
+  final GpuBenchResult? gpuRender;
 
-  const _ResultsPanel({this.cpu, this.mem, this.disk, this.gpu});
+  const _ResultsPanel({
+    this.cpu,
+    this.mem,
+    this.disk,
+    this.gpuCompute,
+    this.gpuRender,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -399,15 +437,41 @@ class _ResultsPanel extends StatelessWidget {
             _row('Disco leitura', '${disk!.readMbps.toStringAsFixed(0)} MB/s'),
             _row('Disco score', disk!.score.toStringAsFixed(0), strong: true),
           ],
-          if (gpu != null) ...[
+          if (gpuCompute != null) ...[
             const Divider(height: 22),
-            _row('GPU', gpu!.device),
-            _row('GPU frames/s', '${gpu!.fps.toStringAsFixed(1)} fps'),
+            _row('GPU compute', gpuCompute!.device),
             _row(
-              'GPU resolução',
-              '${gpu!.width}x${gpu!.height} · ${gpu!.iterations} iter',
+              'GPU compute frames/s',
+              '${gpuCompute!.fps.toStringAsFixed(1)} fps',
             ),
-            _row('GPU score', gpu!.score.toStringAsFixed(0), strong: true),
+            _row(
+              'GPU compute resolução',
+              '${gpuCompute!.width}x${gpuCompute!.height} · '
+                  '${gpuCompute!.iterations} iter',
+            ),
+            _row(
+              'GPU compute score',
+              gpuCompute!.score.toStringAsFixed(0),
+              strong: true,
+            ),
+          ],
+          if (gpuRender != null) ...[
+            const Divider(height: 22),
+            _row('GPU render (jogos)', gpuRender!.device),
+            _row(
+              'GPU render frames/s',
+              '${gpuRender!.fps.toStringAsFixed(1)} fps',
+            ),
+            _row(
+              'GPU render cena',
+              '${gpuRender!.width}x${gpuRender!.height} · '
+                  '${gpuRender!.iterations} passes',
+            ),
+            _row(
+              'GPU render score',
+              gpuRender!.score.toStringAsFixed(0),
+              strong: true,
+            ),
           ],
         ],
       ),

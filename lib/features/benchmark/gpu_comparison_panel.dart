@@ -6,10 +6,15 @@ import 'gpu_benchmark.dart';
 import 'gpu_reference_db.dart';
 
 /// Comparação do resultado de GPU com 3DMark Time Spy / Geekbench 6 Metal.
+///
+/// O Time Spy é estimado preferencialmente pelo teste de renderização
+/// (rasterização/fill rate); o Geekbench 6 Metal pelo teste de compute.
 class GpuComparisonPanel extends StatefulWidget {
-  final GpuBenchResult gpu;
+  final GpuBenchResult? compute;
+  final GpuBenchResult? render;
 
-  const GpuComparisonPanel({super.key, required this.gpu});
+  const GpuComparisonPanel({super.key, this.compute, this.render})
+      : assert(compute != null || render != null);
 
   @override
   State<GpuComparisonPanel> createState() => _GpuComparisonPanelState();
@@ -37,11 +42,16 @@ class _GpuComparisonPanelState extends State<GpuComparisonPanel> {
   }
 
   Widget _buildPanel(GpuReferenceData db) {
-    final gpu = widget.gpu;
-    final estTimeSpy = db.estimateTimeSpy(gpu.fps);
-    final estGb6 = db.estimateGb6Metal(gpu.fps);
-    final percentile = db.percentile(gpu.fps, vendor: _vendor);
-    final nearest = db.nearest(gpu.fps, vendor: _vendor);
+    final compute = widget.compute;
+    final render = widget.render;
+
+    final estTimeSpy = render != null
+        ? db.timeSpyFromRender(render.fps)
+        : db.timeSpyFromCompute(compute!.fps);
+    final estGb6 = compute == null ? null : db.gb6FromCompute(compute.fps);
+    final percentile =
+        db.percentileForTimeSpy(estTimeSpy, vendor: _vendor);
+    final nearest = db.nearestForTimeSpy(estTimeSpy, vendor: _vendor);
 
     final pool = db.devicesFor(_vendor);
     final shown = pool.take(9).toList();
@@ -86,16 +96,24 @@ class _GpuComparisonPanelState extends State<GpuComparisonPanel> {
                 value: _fmt(estTimeSpy),
                 color: AppColors.violet,
               ),
-              _EstimatePill(
-                label: 'Geekbench 6 Metal',
-                value: _fmt(estGb6),
-                color: AppColors.accent,
-              ),
-              _EstimatePill(
-                label: 'BMyBench GPU',
-                value: '${gpu.fps.toStringAsFixed(1)} fps',
-                color: AppColors.orange,
-              ),
+              if (estGb6 != null)
+                _EstimatePill(
+                  label: 'Geekbench 6 Metal',
+                  value: _fmt(estGb6),
+                  color: AppColors.accent,
+                ),
+              if (render != null)
+                _EstimatePill(
+                  label: 'GPU render (jogos)',
+                  value: '${render.fps.toStringAsFixed(1)} fps',
+                  color: AppColors.orange,
+                ),
+              if (compute != null)
+                _EstimatePill(
+                  label: 'GPU compute',
+                  value: '${compute.fps.toStringAsFixed(1)} fps',
+                  color: AppColors.accent,
+                ),
               _EstimatePill(
                 label: 'Percentil',
                 value: '${percentile.toStringAsFixed(0)}%',
@@ -146,7 +164,9 @@ class _GpuComparisonPanelState extends State<GpuComparisonPanel> {
               color: _vendorColor(d.vendor),
             ),
           _RankRow(
-            name: 'Seu dispositivo (BMyBench GPU)',
+            name: render != null
+                ? 'Seu dispositivo (BMyBench render)'
+                : 'Seu dispositivo (BMyBench compute)',
             value: estTimeSpy,
             maxValue: maxValue,
             label: _fmt(estTimeSpy),
@@ -154,9 +174,24 @@ class _GpuComparisonPanelState extends State<GpuComparisonPanel> {
             highlight: true,
           ),
           const SizedBox(height: 12),
+          if (render == null && compute != null)
+            const Padding(
+              padding: EdgeInsets.only(bottom: 8),
+              child: Text(
+                'Time Spy estimado pelo teste de compute. Rode o teste de '
+                'renderização para uma comparação mais fiel a jogos.',
+                style: TextStyle(
+                  color: AppColors.orange,
+                  fontSize: 10,
+                  height: 1.5,
+                ),
+              ),
+            ),
           Text(
             '${db.disclaimer}\nA conversão é linear e calibrada em '
-            '${db.anchorDevice} — trate como estimativa, não como medida oficial.',
+            '${db.anchorDevice}. O Time Spy usa o teste de renderização; '
+            'o Geekbench 6 Metal usa o de compute. Trate como estimativa, '
+            'não como medida oficial.',
             style: const TextStyle(
               color: AppColors.textMuted,
               fontSize: 10,

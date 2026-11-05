@@ -4,7 +4,8 @@
   "disclaimer": "Valores de referencia aproximados, compilados de benchmarks publicos (3DMark Time Spy Graphics e Geekbench 6 Metal) e arredondados. Nao sao resultados oficiais. 3DMark e Geekbench pertencem aos seus respectivos proprietarios.",
   "anchor": {
     "device": "Apple M5 (8-core GPU)",
-    "bmb_fps": 263.47,
+    "compute_fps": 262.8,
+    "render_fps": 270.8,
     "time_spy_graphics": 3000,
     "gb6_metal": 61000
   },

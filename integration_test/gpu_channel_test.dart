@@ -15,6 +15,7 @@ void main() {
     expect(info.height, 1080);
 
     final result = await service.run(durationMs: 800);
+    expect(result.kind, 'compute');
     expect(result.fps, greaterThan(0));
     expect(result.score, greaterThan(0));
     expect(result.frames, greaterThan(0));
@@ -22,8 +23,20 @@ void main() {
 
     // ignore: avoid_print
     print(
-      'GPU OK: ${result.device} · ${result.fps} fps · '
+      'GPU compute OK: ${result.device} · ${result.fps} fps · '
       'score ${result.score} · ${result.frames} frames',
+    );
+
+    final render = await service.runRender(durationMs: 800);
+    expect(render.kind, 'render');
+    expect(render.fps, greaterThan(0));
+    expect(render.score, greaterThan(0));
+    expect(render.frames, greaterThan(0));
+
+    // ignore: avoid_print
+    print(
+      'GPU render OK: ${render.device} · ${render.fps} fps · '
+      'score ${render.score} · ${render.frames} frames',
     );
   });
 }

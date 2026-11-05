@@ -25,12 +25,14 @@ class GpuReferenceDevice {
 
 /// Base de referência de GPU.
 ///
-/// O BMyBench mede frames/s do kernel Metal. A conversão para 3DMark
-/// Time Spy Graphics e Geekbench 6 Metal é linear, calibrada no
-/// dispositivo âncora (o mesmo que gerou o score de referência).
+/// O BMyBench mede frames/s em dois testes: compute e render. O Time Spy
+/// (rasterização) é estimado a partir do teste de render; o Geekbench 6
+/// Metal (compute) a partir do teste de compute. A conversão é linear,
+/// calibrada no dispositivo âncora.
 class GpuReferenceData {
   final String anchorDevice;
-  final double anchorFps;
+  final double anchorComputeFps;
+  final double anchorRenderFps;
   final double anchorTimeSpy;
   final double anchorGb6Metal;
   final List<GpuReferenceDevice> devices;
@@ -38,7 +40,8 @@ class GpuReferenceData {
 
   const GpuReferenceData({
     required this.anchorDevice,
-    required this.anchorFps,
+    required this.anchorComputeFps,
+    required this.anchorRenderFps,
     required this.anchorTimeSpy,
     required this.anchorGb6Metal,
     required this.devices,
@@ -71,9 +74,13 @@ class GpuReferenceData {
         .toList()
       ..sort((a, b) => b.timeSpy.compareTo(a.timeSpy));
 
+    final computeFps = (anchor['compute_fps'] ?? anchor['bmb_fps']) as num;
+
     final data = GpuReferenceData(
       anchorDevice: (anchor['device'] as String?) ?? 'BMyBench anchor',
-      anchorFps: (anchor['bmb_fps'] as num).toDouble(),
+      anchorComputeFps: computeFps.toDouble(),
+      anchorRenderFps:
+          (anchor['render_fps'] as num?)?.toDouble() ?? computeFps.toDouble(),
       anchorTimeSpy: (anchor['time_spy_graphics'] as num).toDouble(),
       anchorGb6Metal: (anchor['gb6_metal'] as num).toDouble(),
       devices: list,
@@ -83,26 +90,31 @@ class GpuReferenceData {
     return data;
   }
 
-  double estimateTimeSpy(double fps) => anchorTimeSpy * (fps / anchorFps);
+  /// Time Spy estimado a partir do teste de renderização.
+  double timeSpyFromRender(double fps) =>
+      anchorTimeSpy * (fps / anchorRenderFps);
 
-  double estimateGb6Metal(double fps) => anchorGb6Metal * (fps / anchorFps);
+  /// Time Spy estimado a partir do teste de compute (fallback).
+  double timeSpyFromCompute(double fps) =>
+      anchorTimeSpy * (fps / anchorComputeFps);
 
-  /// Percentual de GPUs de referência abaixo do resultado informado.
-  double percentile(double fps, {String vendor = 'Todos'}) {
+  /// Geekbench 6 Metal estimado a partir do teste de compute.
+  double gb6FromCompute(double fps) => anchorGb6Metal * (fps / anchorComputeFps);
+
+  /// Percentual de GPUs de referência abaixo do Time Spy informado.
+  double percentileForTimeSpy(double timeSpy, {String vendor = 'Todos'}) {
     final pool = _filter(vendor);
     if (pool.isEmpty) return 0;
-    final target = estimateTimeSpy(fps);
-    final below = pool.where((d) => d.timeSpy < target).length;
+    final below = pool.where((d) => d.timeSpy < timeSpy).length;
     return below / pool.length * 100;
   }
 
-  GpuReferenceDevice? nearest(double fps, {String vendor = 'Todos'}) {
+  GpuReferenceDevice? nearestForTimeSpy(double timeSpy, {String vendor = 'Todos'}) {
     final pool = _filter(vendor);
     if (pool.isEmpty) return null;
-    final target = estimateTimeSpy(fps);
     return pool.reduce(
       (a, b) =>
-          (a.timeSpy - target).abs() <= (b.timeSpy - target).abs() ? a : b,
+          (a.timeSpy - timeSpy).abs() <= (b.timeSpy - timeSpy).abs() ? a : b,
     );
   }
 

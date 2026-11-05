@@ -6,7 +6,7 @@
     "created": "2026-11-05",
     "owner": "sergio",
     "workingDir": "$HOME/repos/BeMyBench",
-    "status": "MVP - Fase 0/1/2 concluídas; benchmark de GPU Metal + comparação (Time Spy/Geekbench 6 Metal)",
+    "status": "MVP - Fase 0/1/2 concluídas; GPU compute + render (jogos) em Metal e comparação com Time Spy/GB6 Metal",
     "goal": "AIDA64 moderno, cross-platform (macOS, Windows, Linux, Android), com diagnóstico + benchmark + saúde de bateria + auxílio de desempenho.",
     "stack": {
       "ui": "Flutter 3.47.9 / Dart 3.13.7 (instalado em ../flutter)",
@@ -372,6 +372,38 @@
         "unitTests": "3/3"
       },
       "caveat": "O numero de Time Spy e uma conversao linear calibrada no ancora (3000 pontos para o M5 8-core). Nao e resultado oficial do 3DMark. O kernel mede compute (nao rasterizacao), entao a correlacao com jogos e limitada."
+    },
+    {
+      "date": "2026-11-05T14:05",
+      "phase": "Benchmark - GPU render (jogos)",
+      "done": [
+        "GpuBenchmark.swift refatorado para dois testes: runCompute (FMA + sin/cos/sqrt) e runRender (pipeline gráfico vertex+fragment off-screen)",
+        "Fragment shader de render com 24 passos de ruído procedural bilinear (hash) + iluminação/trig, exercitando rasterização, fill rate e shading",
+        "Medição compartilhada por gpuStartTime/gpuEndTime, aquecimento de 2 frames e lotes de 4 frames",
+        "MethodChannel bemybench/gpu ganhou o método run_render",
+        "GpuBenchResult ganhou kind (compute/render); GpuBenchmarkService.runRender()",
+        "reference_gpu.json: âncora separada em compute_fps (262.8) e render_fps (270.8)",
+        "gpu_reference_db.dart: Time Spy estimado pelo render (raster) e GB6 Metal pelo compute",
+        "GpuComparisonPanel unificado com pills de compute, render, Time Spy, GB6 e percentil",
+        "BenchmarkScreen: chips separados GPU compute e GPU render, execução no fluxo e resultados detalhados",
+        "Integration test cobre info + compute + render no app real"
+      ],
+      "verified": {
+        "gpuCompute": {
+          "fps": 262.8,
+          "score": 26280
+        },
+        "gpuRender": {
+          "fps": 270.8,
+          "score": 27080,
+          "shading_iterations": 24,
+          "triangles_per_frame": 1
+        },
+        "integrationTest": "compute 261.31 fps; render 271.19 fps",
+        "flutterAnalyze": "sem erros/warnings",
+        "unitTests": "3/3"
+      },
+      "caveat": "O teste de render usa um triângulo full-screen com fragment shader procedural. Mede fill rate/shading, não uma cena completa com geometria, sombras ou ray tracing. Time Spy continua sendo conversão linear calibrada."
     }
   ],
   "roadmap": {

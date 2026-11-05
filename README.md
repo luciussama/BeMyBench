@@ -24,7 +24,7 @@
 | 1 — Bateria (macOS real) | ✅ |
 | 1 — Sensores CPU/RAM (macOS/Linux) | ✅ |
 | 2 — Benchmarks CPU/Memória/Disco | ✅ |
-| 2 — GPU Metal (off-screen) + comparação | ✅ |
+| 2 — GPU Metal (compute + render) + comparação | ✅ |
 | 3 — MVP+ (RAM single/dual, saúde SSD, temp, updates) | ⏳ |
 | V1.1 — Cleaner, Updater, FurMark, teste de descarga | ⏳ |
 
@@ -64,14 +64,19 @@ Score próprio — **não** clona Geekbench/Cinebench.
 - **Memória:** banda sequencial de escrita/leitura/cópia (GB/s) + latência de acesso aleatório
   via pointer chasing (ns).
 - **Disco:** leitura/escrita sequencial em arquivo temporário, removido ao final.
-- **GPU (macOS):** kernel Metal de compute (FMA + sin/cos/sqrt) sobre 1920×1080
-  off-screen, medido pelo tempo de GPU do command buffer. Score = frames/s × 100.
-  A conversão para 3DMark Time Spy Graphics / Geekbench 6 Metal é linear, calibrada
-  no dispositivo âncora de `assets/data/reference_gpu.json` — é estimativa, não
-  resultado oficial.
+- **GPU compute (macOS):** kernel Metal de compute (FMA + sin/cos/sqrt) sobre
+  1920×1080 off-screen, medido pelo tempo de GPU do command buffer.
+- **GPU render (macOS):** pipeline gráfico real (vertex + fragment shader) com
+  24 passos de ruído procedural e iluminação por pixel em 1920×1080 off-screen.
+  Exercita rasterização, fill rate e shading — mais próximo de um frame de jogo.
+- **Score:** frames/s × 100. A conversão para 3DMark Time Spy Graphics usa o teste
+  de **render**; Geekbench 6 Metal usa o teste de **compute**. Ambas são lineares,
+  calibradas no dispositivo âncora de `assets/data/reference_gpu.json` — são
+  estimativas, não resultados oficiais.
 
 Referência medida neste MacBook (Apple M5, 8-core GPU):
-`GPU ≈ 263 fps` · `score ≈ 26.347` · conversão estimada `Time Spy ≈ 3.000`.
+`GPU compute ≈ 263 fps` · `GPU render ≈ 271 fps` · scores ≈ 26.3k / 27.1k ·
+conversão estimada `Time Spy ≈ 3.000` · `GB6 Metal ≈ 61.000`.
 `CPU score ≈ 4.872` · `RAM leitura ≈ 35 GB/s` · `latência ≈ 13 ns` · `SSD ≈ 3.7 GB/s leitura`.
 
 ## Armadilhas conhecidas

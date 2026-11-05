@@ -30,13 +30,33 @@ class MainFlutterWindow: NSWindow {
         let durationMs = args?["duration_ms"] as? Int ?? 1500
         DispatchQueue.global(qos: .userInitiated).async {
           do {
-            let payload = try GpuBenchmark.shared.run(durationMs: durationMs)
+            let payload = try GpuBenchmark.shared.runCompute(durationMs: durationMs)
             DispatchQueue.main.async { result(payload) }
           } catch {
             DispatchQueue.main.async {
               result(
                 FlutterError(
                   code: "gpu_bench_failed",
+                  message: error.localizedDescription,
+                  details: nil
+                )
+              )
+            }
+          }
+        }
+
+      case "run_render":
+        let args = call.arguments as? [String: Any]
+        let durationMs = args?["duration_ms"] as? Int ?? 1500
+        DispatchQueue.global(qos: .userInitiated).async {
+          do {
+            let payload = try GpuBenchmark.shared.runRender(durationMs: durationMs)
+            DispatchQueue.main.async { result(payload) }
+          } catch {
+            DispatchQueue.main.async {
+              result(
+                FlutterError(
+                  code: "gpu_render_failed",
                   message: error.localizedDescription,
                   details: nil
                 )

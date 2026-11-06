@@ -603,6 +603,22 @@
       },
       "commit": "f9ee6ef",
       "status": "concluído"
+    },
+    {
+      "date": "2026-11-06T19:00",
+      "phase": "Iteração 3 - Ciclo de vida da Janela 3D na tela de Benchmark",
+      "done": [
+        "lib/features/benchmark/benchmark_screen.dart: corrigido o chip \"Janela 3D (Ao Vivo)\" para atuar como opção selecionável (toggle) em vez de acionar a abertura imediata ao ser clicado",
+        "lib/features/benchmark/benchmark_screen.dart: sincronizado o ciclo de vida da janela 3D em _runAll() para abrir APENAS durante a etapa de testes de GPU (compute/render) e fechar imediatamente assim que os testes de GPU forem concluídos",
+        "lib/features/benchmark/benchmark_screen.dart: adicionado fechamento preventivo em dispose() e no bloco finally para evitar janelas órfãs em caso de erro ou cancelamento"
+      ],
+      "verified": {
+        "chipTogglesStateOnly": true,
+        "opensOnlyOnGpuTest": true,
+        "closesImmediatelyAfterGpu": true
+      },
+      "commit": "368c693",
+      "status": "concluído"
     }
   ],
   "roadmap": {

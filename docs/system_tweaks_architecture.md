@@ -1,7 +1,7 @@
 # Arquitetura e Especificação Técnica: Ajustes do Sistema (BMyBench)
 
-**Status:** Especificado e Documentado  
-**Branch:** `iter/v5`  
+**Status:** Implementado, Validado e Integrado na Release v1.0  
+**Branch:** `main` (Merge da `iter/v5`)  
 **Escopo:** Três pilares operacionais de manutenção de sistema:
 1. Atualização de pacotes do sistema operacional
 2. Varredura por atualizações de drivers de hardware
@@ -11,12 +11,11 @@
 
 ## 1. Diretriz Mandatória de UX (Regra de Omissão Silenciosa)
 
-- **Sem Disclaimers:** É estritamente proibido exibir avisos ou placeholders educativos como *"Aviso: Android/macOS não suporta gerenciador de hardware"*.
-- **Omissão Completa:** Se uma plataforma não for compatível com um determinado pilar, o botão, card ou seção correspondente **simplesmente não existe** no layout.
-- **Detecção de Capacidade (`PlatformCapabilities`):**
-  - Windows: Suporta Pilar 1 (se `winget` estiver instalado), Pilar 2 (Windows Update/PnP) e Pilar 3 (WMI/PnP).
-  - Linux: Suporta Pilar 1 (se gerenciador compatível for detectado), Pilar 2 (se `fwupd` ou `ubuntu-drivers` estiverem presentes) e Pilar 3 (`lspci`/`dmesg`).
-  - macOS / Android / Web / iOS: Omitidos silenciosamente nos três pilares.
+- **Sem Disclaimers:** É estritamente proibido exibir avisos ou placeholders educativos como *"Aviso: Android não suporta gerenciador de hardware"*.
+- **Omissão Completa:** Se uma plataforma não for compatível com um determinado pilar ou recurso, o botão, card ou seção correspondente **simplesmente não existe** no layout.
+- **Detecção de Capacidade (`PlatformDetector.supportsSystemTweaks`):**
+  - **Ambientes Desktop (Windows, Linux, macOS):** A aba "Ajustes" é exibida no menu superior. Os botões internos respeitam a disponibilidade de cada ferramenta (ex: se o Homebrew não estiver instalado no Mac, o botão de atualizar pacotes é omitido sem disclaimer).
+  - **Ambientes Mobile (Android / iOS / Web):** A aba inteira é omitida da interface silenciosamente.
 
 ---
 
@@ -26,59 +25,51 @@
 - **Comando Primário:** `winget upgrade --all --include-unknown --accept-package-agreements --accept-source-agreements`
 - **Verificação de Disponibilidade:**
   ```powershell
-  Get-Command winget -ErrorAction SilentlyContinue
+  where winget
   ```
-- **Listagem de Atualizações Disponíveis (Check/Dry-Run):**
-  ```cmd
-  winget upgrade
-  ```
-  Retorna tabela com Nome, Id, Versão Atual, Versão Disponível e Origem.
-- **Execução e Privilégios:**
-  - `winget` pode necessitar de privilégios elevados (UAC) para certos instaladores `.exe`/`.msi`.
-  - Estratégia de execução: Executar via `Process.start` transmitindo stream de saída (stdout/stderr) para feedback visual em modal com barra de rolagem e botão de fechar ao concluir.
+- **Listagem Prévia:** `winget upgrade --include-unknown`
+- **Execução e Privilégios:** Executado via streaming em modal visual (`PackageUpdaterModal`) com log e barra de progresso.
 
 ### 2.2. Linux
-- **Detecção de Gerenciador:**
-  - Debian/Ubuntu: `which apt` / `which apt-get`
-  - Fedora/RHEL: `which dnf`
-  - Arch Linux: `which pacman`
-  - openSUSE: `which zypper`
+- **Detecção de Gerenciador:** Detecção dinâmica entre `apt`, `apt-get`, `dnf`, `pacman` e `zypper`.
 - **Listagem Prévia (Sem privilégios de root):**
   - APT: `apt list --upgradable`
-  - DNF: `dnf check-update` (código de saída 100 indica updates pendentes)
-  - Pacman: `checkupdates` ou `pacman -Qu`
-- **Execução com Elevação de Privilégios:**
-  - No Linux, `apt upgrade` exige root.
-  - Estratégia de elevação:
-    1. Se ambiente gráfico com Polkit disponível: `pkexec apt update && pkexec apt upgrade -y` (exibe prompt nativo do sistema para senha).
-    2. Fallback de terminal interativo: Abrir em emulador de terminal gráfico do usuário (`x-terminal-emulator`, `gnome-terminal`, `konsole`, `xterm`) executando o comando de atualização.
+- **Execução com Elevação Gráfica (Polkit):**
+  - Execução via `pkexec sh -c 'apt update && apt upgrade -y'`, invocando a caixa de diálogo nativa de autenticação gráfica do sistema operacional sem abrir terminais CLI pretos.
+
+### 2.3. macOS
+- **Detecção de Gerenciador:** Verificação de `/opt/homebrew/bin/brew` ou `/usr/local/bin/brew`.
+- **Listagem Prévia:** `brew outdated --verbose`
+- **Execução:** `brew upgrade` via streaming no modal visual.
+- **Omissão:** Se o Homebrew não estiver instalado na máquina, a seção de pacotes é omitida silenciosamente.
 
 ---
 
 ## 3. Pilar 2: Varredura por Atualização de Drivers
 
 ### 3.1. Windows
-- **Mecanismo Primário (Windows Update API - COM Object):**
-  O Windows não possui um comando CLI no Device Manager para checar driver sem abrir o assistente GUI, porém a API nativa do Windows Update Agent (`Microsoft.Update.Session`) permite varredura assíncrona filtrando por drivers:
+- **Mecanismo Primário (Windows Update Agent COM Object):**
   ```powershell
   $Session = New-Object -ComObject Microsoft.Update.Session
   $Searcher = $Session.CreateUpdateSearcher()
   $Results = $Searcher.Search("IsInstalled=0 and Type='Driver'")
   $Results.Updates | Select-Object Title, Description, DriverModel, DriverManufacturer, DriverVerDate | ConvertTo-Json
   ```
-- **Mecanismo PnP (Varredura de barramento):**
-  - `pnputil /scan-devices`: Força o Windows a reescanear todo o barramento PnP em busca de novos dispositivos ou alterações de hardware.
+- **Reescaneamento de Barramento:** `pnputil /scan-devices`
 
 ### 3.2. Linux
 - **Mecanismo Primário: LVFS / `fwupd` (Firmware de Fabricantes):**
-  - Utilitário universal para atualização de firmware de hardware (UEFI, NVMe, controladoras, docks, GPUs):
-    ```bash
-    fwupdmgr refresh && fwupdmgr get-updates --json
-    ```
-    Retorna dispositivos com firmware novo disponível no Linux Vendor Firmware Service.
+  ```bash
+  fwupdmgr refresh && fwupdmgr get-updates --json
+  ```
 - **Mecanismo Secundário: `ubuntu-drivers` (para GPUs e chipsets proprietários):**
-  - `ubuntu-drivers devices` ou `ubuntu-drivers list`:
-    Identifica se placas de vídeo (ex: NVIDIA) ou interfaces de rede têm drivers proprietários recomendados mais recentes nos repositórios APT.
+  ```bash
+  ubuntu-drivers devices
+  ```
+  O parser extrai o identificador limpo do driver (ex: `nvidia-driver-535`).
+
+### 3.3. macOS
+- **Mecanismo Oficial da Apple:** Consulta a atualizações de hardware e firmware via `softwareupdate -l`.
 
 ---
 
@@ -88,42 +79,33 @@
 - **Consulta WMI / CIM (`Win32_PnPEntity`):**
   Dispositivos PnP com falha ou driver ausente possuem código de erro diferente de 0 (`ConfigManagerErrorCode != 0`):
   ```powershell
-  Get-CimInstance Win32_PnPEntity | Where-Object { $_.ConfigManagerErrorCode -ne 0 } | Select-Object Name, DeviceID, Manufacturer, ConfigManagerErrorCode, Status | ConvertTo-Json
+  Get-CimInstance Win32_PnPEntity | Where-Object { $_.ConfigManagerErrorCode -ne 0 } | Select-Object Name, DeviceID, PNPClass, ConfigManagerErrorCode | ConvertTo-Json
   ```
-- **Tabela de Códigos de Erro Relevantes do Windows Device Manager:**
-  - **Código 28 (`CM_PROB_FAILED_INSTALL`):** "Os drivers para este dispositivo não estão instalados" (Ponto de exclamação amarelo / driver ausente).
-  - **Código 10 (`CM_PROB_FAILED_START`):** "O dispositivo não pode ser iniciado" (Falha no driver ou incompatibilidade).
-  - **Código 43 (`CM_PROB_FAILED_POST_START`):** "O Windows interrompeu este dispositivo porque encontrou problemas".
-  - **Código 1 (`CM_PROB_NOT_CONFIGURED`):** Dispositivo não configurado.
-  - **Código 14 (`CM_PROB_NEED_RESTART`):** O dispositivo requer reinicialização para funcionar.
-  - **Código 22 (`CM_PROB_DISABLED`):** Dispositivo desativado pelo usuário/sistema.
-- **Mecanismo PnP Alternativo:**
-  - `pnputil /enum-devices /problem /deviceids`
+- **Mapeamento de Códigos de Erro para Linguagem Leiga:**
+  - **Código 28 (`CM_PROB_FAILED_INSTALL`):** "Driver Não Instalado (Código 28)" — Alerta laranja com orientação de busca.
+  - **Código 10 (`CM_PROB_FAILED_START`):** "Falha ao Iniciar Dispositivo (Código 10)" — Alerta vermelho.
+  - **Código 43 (`CM_PROB_FAILED_POST_START`):** "Dispositivo Interrompido por Falha (Código 43)".
+  - **Código 14 (`CM_PROB_NEED_RESTART`):** "Reinicialização Necessária (Código 14)".
+  - **Código 1 (`CM_PROB_NOT_CONFIGURED`):** "Dispositivo Não Configurado (Código 1)".
 
 ### 4.2. Linux
 - **Detecção de Dispositivos PCI sem Driver:**
-  - Comando: `lspci -nnk`
-  - Parser: Cada dispositivo PCI possui seu identificador e classe. Se o bloco do dispositivo não contiver a linha `Kernel driver in use:`, significa que o kernel reconhece o hardware mas **nenhum driver/módulo está ativo para ele**:
-    ```
-    02:00.0 Network controller [0280]: Broadcom Inc. and subsidiaries BCM4360 [14e4:43a0] (rev 03)
-        Subsystem: Apple Inc. AirPort Extreme [106b:0117]
-        Kernel modules: bcma, wl
-        # Note: falta "Kernel driver in use:" -> driver ausente!
-    ```
+  - Varredura de `lspci -nnk`: dispositivos sem a diretiva `Kernel driver in use:` são catalogados como hardware sem driver ativo.
 - **Detecção de Erros de Firmware no Kernel:**
-  - Comando: `dmesg -l err,warn --time-format iso | grep -iE "firmware.*failed|failed to load|missing firmware"`
-  - Captura mensagens de periféricos que tentaram inicializar mas falharam por falta de blob de firmware em `/lib/firmware`.
+  - Varredura em `dmesg -l err,warn` para capturar falhas como `firmware: failed to load` ou `Direct firmware load failed`.
+
+### 4.3. macOS
+- **Diagnóstico Nativo:** Validação de integridade dos barramentos (Thunderbolt, USB4, GPU, Neural Engine, Wi-Fi, Áudio) via kernel Darwin.
 
 ---
 
-## 5. Estrutura de Código Proposta no Flutter
+## 5. Estrutura de Arquivos Implementada
 
 ```
 lib/features/system_tweaks/
-├── system_tweaks_models.dart      # Modelos: PackageUpdateItem, DriverUpdateItem, ProblematicDeviceItem
-├── system_tweaks_service.dart     # Coletor e orquestrador multi-plataforma (Windows e Linux)
-├── widgets/
-│   ├── package_updater_modal.dart # Diálogo com log e progresso de atualização
-│   ├── driver_updates_panel.dart  # Lista de drivers disponíveis para atualização
-│   └── problematic_devices_card.dart # Card com badges vermelhas/amarelas para hardware com falha
+├── system_tweaks_models.dart      # Modelos: PackageInfoItem, DriverUpdateItem, ProblematicHardwareItem, SystemTweaksScanReport
+├── system_tweaks_service.dart     # Coletor e orquestrador multi-plataforma (Windows, Linux e macOS)
+├── system_tweaks_screen.dart      # Tela visual da aba Ajustes com os 3 pilares estruturados
+└── widgets/
+    └── package_updater_modal.dart # Modal interativo com progresso, log estilizado e sem terminais
 ```

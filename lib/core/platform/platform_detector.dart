@@ -58,7 +58,13 @@ class PlatformDetector {
   /// (Atualização de pacotes, varredura de drivers e diagnóstico de hardware).
   /// Disponível estritamente para Windows e Linux. Em outras plataformas (macOS, Android, etc.)
   /// o recurso é completamente omitido sem disclaimers.
-  static bool get supportsSystemTweaks => Platform.isWindows || Platform.isLinux;
+  ///
+  /// Para testes visuais da tela em desenvolvimento no macOS:
+  /// `--dart-define=ENABLE_SYSTEM_TWEAKS_PREVIEW=true`
+  static bool get supportsSystemTweaks =>
+      Platform.isWindows ||
+      Platform.isLinux ||
+      const bool.fromEnvironment('ENABLE_SYSTEM_TWEAKS_PREVIEW', defaultValue: false);
 
   /// Verifica se houve um pointer de tipo touch na sessão atual de gestos.
   /// (Uso futuro: alternar tema em runtime se usuário tocar com dedo em laptop touch.)

@@ -13,17 +13,21 @@ class SystemTweaksService {
   final bool isWindows;
   final bool isLinux;
 
+  static const bool isPreviewMode =
+      bool.fromEnvironment('ENABLE_SYSTEM_TWEAKS_PREVIEW', defaultValue: false);
+
   SystemTweaksService({
     bool? isWindows,
     bool? isLinux,
   })  : isWindows = isWindows ?? Platform.isWindows,
         isLinux = isLinux ?? Platform.isLinux;
 
-  bool get isSupported => isWindows || isLinux;
+  bool get isSupported => isWindows || isLinux || isPreviewMode;
 
   String get detectedOsName {
     if (isWindows) return 'Windows';
     if (isLinux) return 'Linux';
+    if (isPreviewMode) return 'Preview (Ambiente de Teste)';
     return Platform.operatingSystem;
   }
 
@@ -33,6 +37,10 @@ class SystemTweaksService {
 
   /// Detecta qual gerenciador de pacotes está disponível no sistema.
   Future<String> detectPackageManager() async {
+    if (isPreviewMode && !isWindows && !isLinux) {
+      return 'winget / APT (Modo Preview)';
+    }
+
     if (isWindows) {
       try {
         final res = await Process.run('where', ['winget']);
@@ -57,6 +65,25 @@ class SystemTweaksService {
   /// Verifica se há pacotes disponíveis para atualização sem instalar.
   Future<List<PackageInfoItem>> checkPackageUpdates() async {
     if (!isSupported) return const [];
+
+    if (isPreviewMode && !isWindows && !isLinux) {
+      return const [
+        PackageInfoItem(
+          name: 'Google Chrome',
+          id: 'Google.Chrome',
+          currentVersion: '120.0.6099.130',
+          availableVersion: '121.0.6167.86',
+          source: 'winget',
+        ),
+        PackageInfoItem(
+          name: 'Git for Windows',
+          id: 'Git.Git',
+          currentVersion: '2.43.0',
+          availableVersion: '2.44.0',
+          source: 'winget',
+        ),
+      ];
+    }
 
     if (isWindows) {
       return _checkWingetUpdates();
@@ -166,6 +193,21 @@ class SystemTweaksService {
       return false;
     }
 
+    if (isPreviewMode && !isWindows && !isLinux) {
+      onProgress('Iniciando simulação de atualização de pacotes...');
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      onProgress('Conectando aos servidores oficiais de pacotes...');
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      onProgress('Baixando atualizações (1/2): Google.Chrome...');
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      onProgress('Baixando atualizações (2/2): Git.Git...');
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      onProgress('Instalando e validando integridade...');
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      onProgress('\n✓ Todos os pacotes disponíveis foram atualizados com sucesso!');
+      return true;
+    }
+
     if (isWindows) {
       onProgress('Iniciando Windows Package Manager (winget)...\n');
       try {
@@ -263,6 +305,29 @@ class SystemTweaksService {
   /// Varredura por drivers atualizados para os dispositivos do sistema.
   Future<List<DriverUpdateItem>> scanDriverUpdates() async {
     if (!isSupported) return const [];
+
+    if (isPreviewMode && !isWindows && !isLinux) {
+      return const [
+        DriverUpdateItem(
+          deviceName: 'Intel System Firmware / BIOS Update',
+          currentVersion: '1.14.0',
+          availableVersion: '1.15.0',
+          releaseDate: '2024-01-15',
+          manufacturer: 'Intel Corporation',
+          provider: 'Windows Update / LVFS',
+          isFirmware: true,
+        ),
+        DriverUpdateItem(
+          deviceName: 'Realtek PCIe GbE Family Controller',
+          currentVersion: '10.50.511.2021',
+          availableVersion: '10.68.815.2023',
+          releaseDate: '2023-08-20',
+          manufacturer: 'Realtek',
+          provider: 'Repositório de Drivers',
+          isFirmware: false,
+        ),
+      ];
+    }
 
     if (isWindows) {
       return _scanWindowsDriverUpdates();
@@ -425,6 +490,17 @@ try {
   /// ou problemas operacionais reportados pelo sistema.
   Future<List<ProblematicHardwareItem>> scanProblematicHardware() async {
     if (!isSupported) return const [];
+
+    if (isPreviewMode && !isWindows && !isLinux) {
+      return [
+        ProblematicHardwareItem.fromWindowsPnp(
+          name: 'Controlador de Comunicação PCI Simples',
+          deviceId: r'PCI\VEN_8086&DEV_A13A&SUBSYS_085B1028',
+          hardwareClass: 'Outros Dispositivos',
+          errorCode: 28,
+        ),
+      ];
+    }
 
     if (isWindows) {
       return _scanWindowsProblematicHardware();

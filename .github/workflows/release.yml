@@ -108,7 +108,7 @@ jobs:
         run: flutter pub get
 
       - name: Compilar Aplicativo macOS
-        run: flutter build macos --release --no-codesign
+        run: flutter build macos --release
 
       - name: Embutir dylib Rust no Bundle e Criar DMG
         run: |

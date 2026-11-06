@@ -732,11 +732,9 @@ void GpuBenchmarkWin::Register(flutter::BinaryMessenger* messenger) {
                     }
                 }
             }
-            std::thread([result_ptr = result.release(), duration_ms]() {
-                auto res = RunCompute(duration_ms);
-                result_ptr->Success(flutter::EncodableValue(res));
-                delete result_ptr;
-            }).detach();
+            // Executa sincronicamente na thread da engine do Flutter para garantir retorno 100% confiável ao Dart
+            auto res = RunCompute(duration_ms);
+            result->Success(flutter::EncodableValue(res));
         } else if (method == "run_render") {
             int duration_ms = 1500;
             const auto* args = std::get_if<flutter::EncodableMap>(call.arguments());
@@ -750,11 +748,9 @@ void GpuBenchmarkWin::Register(flutter::BinaryMessenger* messenger) {
                     }
                 }
             }
-            std::thread([result_ptr = result.release(), duration_ms]() {
-                auto res = RunRender(duration_ms);
-                result_ptr->Success(flutter::EncodableValue(res));
-                delete result_ptr;
-            }).detach();
+            // Executa sincronicamente na thread da engine do Flutter para garantir retorno 100% confiável ao Dart
+            auto res = RunRender(duration_ms);
+            result->Success(flutter::EncodableValue(res));
         } else if (method == "open_3d_window") {
             std::string mode = "stress";
             const auto* args = std::get_if<flutter::EncodableMap>(call.arguments());
@@ -884,8 +880,20 @@ std::map<flutter::EncodableValue, flutter::EncodableValue> GpuBenchmarkWin::RunC
     const uint32_t threadgroups = (totalPixels + 255) / 256;
 
     while (true) {
+        // Mantém a fila de mensagens do Windows ativa para evitar que o Flutter congele
+        MSG msg;
+        while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+
         d3d.GetContext()->Dispatch(threadgroups, 1, 1);
         frames++;
+
+        // A cada 8 dispatches, sincroniza o fluxo da GPU para evitar TDR/timeout
+        if ((frames % 8) == 0) {
+            d3d.GetContext()->Flush();
+        }
 
         QueryPerformanceCounter(&tNow);
         double elapsed = static_cast<double>(tNow.QuadPart - tStart.QuadPart) / freq.QuadPart;
@@ -894,7 +902,7 @@ std::map<flutter::EncodableValue, flutter::EncodableValue> GpuBenchmarkWin::RunC
         }
     }
 
-    // Flush de sincronização
+    // Flush final de sincronização
     d3d.GetContext()->Flush();
 
     QueryPerformanceCounter(&tNow);
@@ -931,7 +939,18 @@ std::map<flutter::EncodableValue, flutter::EncodableValue> GpuBenchmarkWin::RunR
     // Isso evita disputas simultâneas de GPU e entrega sincronia perfeita com o que o usuário vê.
     if (GpuLiveWindowWin::Instance().IsOpen()) {
         int wait_ms = std::clamp(duration_ms, 200, 2000);
-        std::this_thread::sleep_for(std::chrono::milliseconds(wait_ms));
+        auto tStartWait = std::chrono::steady_clock::now();
+        while (true) {
+            MSG msg;
+            while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+                TranslateMessage(&msg);
+                DispatchMessageW(&msg);
+            }
+            auto now = std::chrono::steady_clock::now();
+            auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - tStartWait).count();
+            if (elapsed >= wait_ms) break;
+            std::this_thread::sleep_for(std::chrono::milliseconds(5));
+        }
 
         double fps = GpuLiveWindowWin::Instance().GetLiveFps();
         if (fps <= 0.0) fps = 60.0;
@@ -1024,6 +1043,13 @@ std::map<flutter::EncodableValue, flutter::EncodableValue> GpuBenchmarkWin::RunR
     d3d.GetContext()->PSSetConstantBuffers(0, 1, &constBuffer);
 
     while (true) {
+        // Mantém a fila de mensagens do Windows ativa
+        MSG msg;
+        while (PeekMessageW(&msg, nullptr, 0, 0, PM_REMOVE)) {
+            TranslateMessage(&msg);
+            DispatchMessageW(&msg);
+        }
+
         QueryPerformanceCounter(&tFrameStart);
 
         float timeSec = static_cast<float>(frames) * 0.016f;

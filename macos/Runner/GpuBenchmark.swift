@@ -19,8 +19,8 @@ final class GpuBenchmark {
   private let width = 1920
   private let height = 1080
   private let computeIterations: UInt32 = 48
-  private let backgroundIterations: UInt32 = 24
-  private let sceneInstances = 1024
+  private let backgroundIterations: UInt32 = 48
+  private let sceneInstances = 4096
   private let cubeTriangles = 12
   private let batchSize = 4
 
@@ -197,17 +197,23 @@ final class GpuBenchmark {
                                          const device BmbSceneVertex *mesh [[buffer(2)]]) {
       BmbSceneVertex v = mesh[vid];
       float fi = float(iid);
-      float gx = fmod(fi, 32.0f) - 15.5f;
-      float gz = floor(fi / 32.0f) - 15.5f;
-      float angle = time * 0.6f + fi * 0.13f;
+      float ringSteps = 64.0f;
+      float tubeSteps = 64.0f; // 64 * 64 = 4096 instances
+      float angleRing = fmod(fi, ringSteps) * (6.2831853f / ringSteps) + time * 0.75f;
+      float angleTube = floor(fi / ringSteps) * (6.2831853f / tubeSteps) + time * 1.35f;
+
+      // FurMark Torus geometry (Donut)
+      float R = 7.5f;
+      float r = 2.6f + 0.35f * sin(angleRing * 4.0f + time * 2.2f);
 
       float3 base = float3(
-        gx * 0.55f,
-        sin(time * 1.3f + fi * 0.17f) * 1.1f,
-        gz * 0.55f
+        (R + r * cos(angleTube)) * cos(angleRing),
+        r * sin(angleTube),
+        (R + r * cos(angleTube)) * sin(angleRing)
       );
 
-      float3 local = v.position * 0.34f;
+      float3 local = v.position * 0.22f;
+      float angle = time * 1.2f + fi * 0.05f;
       float cy = cos(angle);
       float sy = sin(angle);
       float cx = cos(angle * 0.7f);
@@ -228,11 +234,14 @@ final class GpuBenchmark {
       BmbSceneVOut o;
       o.position = viewProj * float4(world, 1.0f);
       o.normal = n;
+
+      // Cores quentes de magma / FurMark (laranja, carmesim, dourado)
+      float heat = 0.5f + 0.5f * sin(fi * 0.08f + time * 1.5f);
       o.color = float3(
-        0.45f + 0.45f * sin(fi * 0.37f),
-        0.45f + 0.45f * sin(fi * 0.53f + 1.0f),
-        0.45f + 0.45f * sin(fi * 0.71f + 2.0f)
-      ) * 1.3f;
+        1.3f + 0.3f * heat,
+        0.35f + 0.45f * heat,
+        0.05f + 0.15f * sin(fi * 0.12f)
+      );
       return o;
     }
 
@@ -242,8 +251,23 @@ final class GpuBenchmark {
       float3 l = normalize(lightDir);
       float diff = max(dot(n, l), 0.0f);
       float3 viewDir = float3(0.0f, 0.0f, 1.0f);
-      float spec = pow(max(dot(reflect(-l, n), viewDir), 0.0f), 24.0f);
-      float3 col = in.color * (0.25f + 0.75f * diff) + float3(0.18f) * spec;
+      float spec = pow(max(dot(reflect(-l, n), viewDir), 0.0f), 32.0f);
+
+      // Carga pesada FurMark: 48 passos de ruído fractal 3D e pelagem por fragmento (ALU-bound)
+      float3 p = in.position * 3.6f;
+      float fur = 0.0f;
+      float occlusion = 1.0f;
+      for (int i = 0; i < 48; ++i) {
+        float fi = float(i);
+        float3 s = sin(p * (1.18f + fi * 0.08f));
+        float3 c = cos(p.zxy * (1.12f + fi * 0.07f));
+        p = s * c + p * 0.46f;
+        fur += abs(dot(s, c)) / (1.0f + fi * 0.4f);
+        occlusion *= 0.965f;
+      }
+
+      float3 fiery = in.color * (0.35f + 0.85f * diff * occlusion) + float3(fur * 0.25f);
+      float3 col = fiery + float3(1.8f, 1.2f, 0.6f) * spec * 2.8f;
       return float4(col, 1.0f);
     }
 

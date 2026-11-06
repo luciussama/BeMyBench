@@ -185,11 +185,13 @@ final class GpuLiveWindowController: NSObject, NSWindowDelegate, MTKViewDelegate
     view.clearColor = MTLClearColorMake(0.04, 0.06, 0.09, 1.0)
     view.isPaused = false
     view.enableSetNeedsDisplay = false
+    view.preferredFramesPerSecond = 0 // Destrava taxa de quadros (VSync OFF)
     view.delegate = self
 
     // VSync OFF: desliga sincronização de display na CAMetalLayer
     if let layer = view.layer as? CAMetalLayer {
       layer.displaySyncEnabled = false
+      layer.allowsNextDrawableTimeout = false
     }
 
     setupHud(over: view, dev: dev)

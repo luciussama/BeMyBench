@@ -7,12 +7,11 @@ import '../../core/widgets/dashboard.dart';
 import '../benchmark/gpu_benchmark.dart';
 import '../sensors/sensors_service.dart';
 
-/// Estresse contínuo de GPU: roda o mesmo teste de render do benchmark em
-/// passos de 1 segundo e registra a taxa de fps ao longo do tempo.
+/// Estresse contínuo de GPU: roda o teste de render da GPU em passos de
+/// 1 segundo e registra a taxa de fps e estabilidade ao longo do tempo.
 ///
 /// A queda de fps entre o pico e o pior valor amostrado funciona como proxy
-/// de thermal throttling — o macOS não expõe temperatura de GPU sem acesso
-/// privilegiado.
+/// de thermal throttling no macOS.
 class StressScreen extends StatefulWidget {
   const StressScreen({super.key});
 
@@ -32,6 +31,7 @@ class _StressScreenState extends State<StressScreen> {
 
   /// 30, 60 ou 0 (contínuo).
   int _targetSeconds = 30;
+  bool _show3dWindow = true;
 
   bool _running = false;
   bool _stopping = false;
@@ -46,6 +46,7 @@ class _StressScreenState extends State<StressScreen> {
   void dispose() {
     _ticker?.cancel();
     _running = false;
+    unawaited(_gpu.close3dWindow());
     super.dispose();
   }
 
@@ -70,8 +71,8 @@ class _StressScreenState extends State<StressScreen> {
     if (_fpsHistory.length < 5) return 'Aguardando amostras...';
     final drop = _dropPercent;
     if (drop < 8) return 'Estável — sem queda relevante';
-    if (drop < 18) return 'Queda moderada — verifique thermal';
-    return 'Throttling severo ou instabilidade';
+    if (drop < 18) return 'Queda moderada — aquecimento detectado';
+    return 'Throttling severo sob estresse';
   }
 
   Color get _verdictColor {
@@ -84,6 +85,11 @@ class _StressScreenState extends State<StressScreen> {
 
   Future<void> _start() async {
     if (_running) return;
+
+    if (_show3dWindow) {
+      unawaited(_gpu.open3dWindow(mode: 'stress'));
+    }
+
     setState(() {
       _fpsHistory.clear();
       _cpuHistory.clear();
@@ -138,6 +144,7 @@ class _StressScreenState extends State<StressScreen> {
 
   void _finish() {
     _ticker?.cancel();
+    unawaited(_gpu.close3dWindow());
     if (!mounted) return;
     setState(() {
       _running = false;
@@ -149,6 +156,7 @@ class _StressScreenState extends State<StressScreen> {
 
   void _stop() {
     if (!_running) return;
+    unawaited(_gpu.close3dWindow());
     setState(() => _stopping = true);
     _running = false;
   }
@@ -176,10 +184,9 @@ class _StressScreenState extends State<StressScreen> {
             eyebrowColor: AppColors.orange,
             title: 'Estresse contínuo de GPU',
             description:
-                'Renderiza a cena 3D em passos de 1 segundo e registra o fps ao '
-                'longo do tempo. Uma queda entre o pico e o pior valor amostrado '
-                'indica throttling térmico (proxy, já que o macOS não expõe a '
-                'temperatura da GPU sem acesso privilegiado).',
+                'Renderiza cena volumétrica 3D ultra-pesada estilo FurMark com VSync OFF. '
+                'Ao iniciar o estresse, a janela 3D abre automaticamente (se selecionada) '
+                'e fecha assim que o tempo escolhido terminar.',
             action: GradientActionButton(
               label: _running
                   ? (_stopping ? 'PARANDO...' : 'PARAR')
@@ -194,49 +201,7 @@ class _StressScreenState extends State<StressScreen> {
         ),
         const SizedBox(height: 16),
 
-        // Atalho para Janela 3D Nativa (FurMark-like)
-        AppPanel(
-          color: const Color(0xFF111A23),
-          padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-          child: Row(
-            children: [
-              const Icon(Icons.open_in_new, color: AppColors.accent, size: 20),
-              const SizedBox(width: 12),
-              const Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Janela 3D Nativa (FurMark-like)',
-                      style: TextStyle(
-                        color: AppColors.textPrimary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 13,
-                      ),
-                    ),
-                    SizedBox(height: 2),
-                    Text(
-                      'Abre uma janela Metal flutuante independente com VSync OFF e HUD ao vivo.',
-                      style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
-                    ),
-                  ],
-                ),
-              ),
-              OutlinedButton.icon(
-                icon: const Icon(Icons.visibility, size: 14, color: AppColors.accent),
-                label: const Text('ABRIR 3D', style: TextStyle(color: AppColors.accent, fontSize: 11, fontWeight: FontWeight.bold)),
-                style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppColors.accent),
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-                ),
-                onPressed: () => _gpu.open3dWindow(mode: 'stress'),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Duração
+        // Opções de Duração e Janela 3D
         Wrap(
           spacing: 10,
           runSpacing: 10,
@@ -249,6 +214,13 @@ class _StressScreenState extends State<StressScreen> {
                 enabled: !_running,
                 onTap: () => setState(() => _targetSeconds = d),
               ),
+            FeatureChip(
+              label: 'Janela 3D nativa ao vivo',
+              color: AppColors.accent,
+              selected: _show3dWindow,
+              enabled: !_running,
+              onTap: () => setState(() => _show3dWindow = !_show3dWindow),
+            ),
           ],
         ),
         const SizedBox(height: 20),
@@ -383,7 +355,7 @@ class _StressScreenState extends State<StressScreen> {
                       child: Text(
                         'Thermal throttling é inferido pela queda de fps. '
                         'O macOS não expõe temperatura de GPU sem execução com '
-                        'privilégios (V1.1 pode usar IOKit/SMC).',
+                        'privilégios.',
                         style: TextStyle(
                           color: AppColors.textMuted,
                           fontSize: 10,

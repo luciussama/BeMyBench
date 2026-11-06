@@ -455,8 +455,13 @@ final class GpuLiveWindowController: NSObject, NSWindowDelegate {
 
           self.frameCount += 1
 
-          // Executa os passes 3D Metal em tempo real na textura do drawable
-          let ok = GpuBenchmark.shared.encodeRenderFrame(cb, frameIndex: self.frameCount, targetTexture: drawable.texture)
+          // Executa os passes 3D Metal em tempo real na textura do drawable + compute furnace pass para estresse máximo contínuo
+          let ok = GpuBenchmark.shared.encodeRenderFrame(
+            cb,
+            frameIndex: self.frameCount,
+            targetTexture: drawable.texture,
+            burnInCompute: true
+          )
           if ok {
             cb.present(drawable)
             cb.commit()

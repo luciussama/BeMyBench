@@ -154,7 +154,7 @@ final class GpuBenchmark {
       float a = 0.5f;
       float2 shift = float2(100.0f);
       float2x2 rot = float2x2(cos(0.5f), sin(0.5f), -sin(0.5f), cos(0.5f));
-      for (int i = 0; i < 6; ++i) {
+      for (int i = 0; i < 8; ++i) {
         v += a * bmb_noise(p);
         p = rot * p * 2.05f + shift;
         a *= 0.5f;
@@ -269,17 +269,17 @@ final class GpuBenchmark {
       float3 h = normalize(l + viewDir);
       float spec = pow(max(dot(n, h), 0.0f), 28.0f);
 
-      // Carga pesada FurMark: 96 passos de turbulência fractal 3D e raymarching de pelagem (ALU-bound)
+      // Carga ultra-pesada FurMark (torture test): 160 passos de turbulência fractal 3D e raymarching de pelagem
       float3 p = in.worldPos * 1.35f;
       float fur = 0.0f;
       float occlusion = 1.0f;
-      for (int i = 0; i < 96; ++i) {
+      for (int i = 0; i < 160; ++i) {
         float fi = float(i);
         float3 s = sin(p * (1.18f + fi * 0.065f));
         float3 c = cos(p.zxy * (1.12f + fi * 0.055f));
         p = fma(s, c, p * 0.48f);
         fur += abs(dot(s, c)) / (1.0f + fi * 0.28f);
-        occlusion *= 0.978f;
+        occlusion *= 0.985f;
       }
 
       // Paleta FurMark autêntica (Magma vivo incandescente):
@@ -625,7 +625,7 @@ final class GpuBenchmark {
 
     let measurement = try measure(durationMs: durationMs, perFrame: true) {
       commandBuffer, frameIndex in
-      self.encodeRenderFrame(commandBuffer, frameIndex: frameIndex)
+      self.encodeRenderFrame(commandBuffer, frameIndex: frameIndex, burnInCompute: true)
     }
 
     var payload = resultPayload(
@@ -678,7 +678,7 @@ final class GpuBenchmark {
       if let computeEncoder = commandBuffer.makeComputeCommandEncoder() {
         computeEncoder.setComputePipelineState(computePipeline)
         computeEncoder.setBuffer(computeOutput, offset: 0, index: 0)
-        var iters: UInt32 = 128
+        var iters: UInt32 = 480
         computeEncoder.setBytes(&iters, length: MemoryLayout<UInt32>.size, index: 1)
         let pixels = width * height
         let grid = MTLSize(width: pixels, height: 1, depth: 1)

@@ -5,7 +5,7 @@
   "anchor": {
     "device": "Apple M5 (8-core GPU)",
     "compute_fps": 262.8,
-    "render_fps": 272.5,
+    "render_fps": 36.5,
     "public_raster": 3000,
     "public_compute": 61000
   },
@@ -42,6 +42,8 @@
     {"name": "NVIDIA GeForce RTX 4060 (8GB)", "vendor": "NVIDIA", "segment": "desktop", "year": 2023, "gpu_cores": 3072, "gpu_ref_raster": 11500, "gpu_ref_compute": 105000},
     {"name": "NVIDIA GeForce RTX 4070 (12GB)", "vendor": "NVIDIA", "segment": "desktop", "year": 2023, "gpu_cores": 5888, "gpu_ref_raster": 18000, "gpu_ref_compute": 135000},
     {"name": "NVIDIA GeForce RTX 4080 (16GB)", "vendor": "NVIDIA", "segment": "desktop", "year": 2022, "gpu_cores": 9728, "gpu_ref_raster": 28000, "gpu_ref_compute": 200000},
-    {"name": "NVIDIA GeForce RTX 4090 (24GB)", "vendor": "NVIDIA", "segment": "desktop", "year": 2022, "gpu_cores": 16384, "gpu_ref_raster": 36000, "gpu_ref_compute": 260000}
+    {"name": "NVIDIA GeForce RTX 4090 (24GB)", "vendor": "NVIDIA", "segment": "desktop", "year": 2022, "gpu_cores": 16384, "gpu_ref_raster": 36000, "gpu_ref_compute": 260000},
+    {"name": "NVIDIA GeForce RTX 5070 (12GB)", "vendor": "NVIDIA", "segment": "desktop", "year": 2025, "gpu_cores": 6144, "gpu_ref_raster": 23500, "gpu_ref_compute": 165000},
+    {"name": "NVIDIA GeForce RTX 5080 (16GB)", "vendor": "NVIDIA", "segment": "desktop", "year": 2025, "gpu_cores": 10752, "gpu_ref_raster": 34000, "gpu_ref_compute": 240000}
   ]
 }

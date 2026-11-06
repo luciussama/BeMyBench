@@ -180,22 +180,12 @@ class SensorsService {
 
     double cpu = 0;
     try {
-      Future<List<int>> readStat() async {
-        final s = await _run('cat', ['/proc/stat']);
-        final first = s.split('\n').first.split(RegExp(r'\s+'));
-        return first.skip(1).take(7).map(int.parse).toList();
-      }
-
-      final a = await readStat();
-      await Future<void>.delayed(const Duration(milliseconds: 500));
-      final b = await readStat();
-      final aTotal = a.fold<int>(0, (p, e) => p + e);
-      final bTotal = b.fold<int>(0, (p, e) => p + e);
-      final aIdle = a[3] + (a.length > 4 ? a[4] : 0);
-      final bIdle = b[3] + (b.length > 4 ? b[4] : 0);
-      final dTotal = bTotal - aTotal;
-      final dIdle = bIdle - aIdle;
-      if (dTotal > 0) cpu = ((dTotal - dIdle) / dTotal) * 100;
+      final s = await _run('cat', ['/proc/stat']);
+      final first = s.split('\n').first.split(RegExp(r'\s+'));
+      final v = first.skip(1).take(7).map(int.parse).toList();
+      final total = v.fold<int>(0, (a, b) => a + b);
+      final idle = v[3] + (v.length > 4 ? v[4] : 0);
+      if (total > 0) cpu = ((total - idle) / total * 100).clamp(0.0, 100.0);
     } catch (_) {}
 
     return SensorsSnapshot(

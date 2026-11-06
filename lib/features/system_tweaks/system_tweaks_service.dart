@@ -532,7 +532,8 @@ try {
         final parts = trimmed.split(':');
         if (parts.length > 1) vendor = parts[1].trim();
       } else if (trimmed.startsWith('driver') && trimmed.contains('recommended')) {
-        final driverName = trimmed.split(':').last.replaceAll('- recommended', '').trim();
+        final afterColon = trimmed.split(':').last.trim();
+        final driverName = afterColon.split(RegExp(r'\s+-\s+')).first.trim();
         items.add(DriverUpdateItem(
           deviceName: currentModel.isNotEmpty ? currentModel : 'Controlador Gráfico/Rede',
           currentVersion: 'Genérico/Open-source',
@@ -695,7 +696,7 @@ try {
 
     for (final line in lines) {
       final lower = line.toLowerCase();
-      if (lower.contains('failed to load') && lower.contains('firmware')) {
+      if (lower.contains('firmware') && (lower.contains('failed') || lower.contains('missing'))) {
         items.add(ProblematicHardwareItem.fromLinux(
           name: 'Módulo de Hardware com Firmware Ausente',
           deviceId: 'Kernel Subsystem',

@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:bemybench/main.dart';
@@ -18,5 +19,9 @@ void main() {
     expect(find.text('Benchmark'), findsWidgets);
     expect(find.text('Estresse'), findsWidgets);
     expect(find.text('Histórico'), findsWidgets);
+
+    // Substitui a árvore e avança o AnimatedSwitcher para acionar dispose() e cancelar o timer
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 300));
   });
 }

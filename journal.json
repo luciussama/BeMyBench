@@ -658,6 +658,25 @@
       },
       "commit": "d30220d",
       "status": "concluído"
+    },
+    {
+      "date": "2026-11-06T20:00",
+      "phase": "Fix Bugs Legados - Porcentagem de Uso de GPU no HUD e Sensores",
+      "done": [
+        "macos/Runner/MainFlutterWindow.swift: implementado currentGpuUtilization() consultando IOKit (IOAccelerator -> PerformanceStatistics -> Device Utilization %) diretamente do driver gráfico do macOS",
+        "macos/Runner/MainFlutterWindow.swift: adicionado gpuUsageLabel ao HUD da janela 3D Metal ('Uso GPU: XX%') com destaque cromático inteligente (ciano em carga moderada e âmbar/laranja em saturação >= 90%)",
+        "macos/Runner/MainFlutterWindow.swift: altura do painel HUD recalculada para 260px (stack 240px) para acomodar a nova métrica sem cortes ou compressão visual",
+        "macos/Runner/MainFlutterWindow.swift: canal nativo bemybench/sensors atualizado para fornecer gpu_usage no payload de medição contínua",
+        "lib/features/sensors/sensors_service.dart: SensorsSnapshot expandido com gpuUsagePercent",
+        "lib/features/sensors/sensors_screen.dart: tile de Temperatura atualizado para exibir porcentagem de uso de GPU em tempo real"
+      ],
+      "verified": {
+        "gpuUtilizationViaIOKit": true,
+        "hudGpuPercentageLive": true,
+        "sensorsGpuUsageReported": true
+      },
+      "commit": "6707bef",
+      "status": "concluído"
     }
   ],
   "roadmap": {

@@ -6,7 +6,7 @@
     "created": "2026-11-05",
     "owner": "sergio",
     "workingDir": "$HOME/repos/BeMyBench",
-    "status": "fix/legacy-bugs: telemetria nativa térmica e de uso de GPU, com FurMark calibrado em nível torture test (35-40 FPS no M5)",
+    "status": "iter/v4: inspeção granular de hardware estilo CPU-Z, GPU-Z e HWiNFO com adaptação cross-platform",
     "goal": "Ferramenta de diagnóstico de hardware moderno, cross-platform (macOS, Windows, Linux, Android), com diagnóstico + benchmark + saúde de bateria + auxílio de desempenho.",
     "stack": {
       "ui": "Flutter 3.47.9 / Dart 3.13.7 (instalado em ../flutter)",
@@ -734,6 +734,31 @@
       },
       "status": "concluído",
       "mergeCommit": "3dae602"
+    },
+    {
+      "date": "2026-11-06T23:30",
+      "phase": "Iteração 4 - Inspeção Granular de Hardware (CPU-Z / GPU-Z / HWiNFO)",
+      "done": [
+        "Criado lib/features/hardware/hardware_models.dart com modelos granulares de hardware: SystemMotherboardInfo, DetailedCpuInfo, DetailedMemoryInfo, DetailedGpuInfo, DisplayItem, StorageDiskItem, UsbControllerItem, NetworkAdapterItem e PlatformHardwarePeculiarity",
+        "lib/features/hardware/hardware_service.dart totalmente refatorado com coletores ricos multi-plataforma: no macOS consulta system_profiler -json (SPHardwareDataType, SPDisplaysDataType, SPMemoryDataType), sysctl para topologia de núcleos de Performance/Efficiency e hierarquia de caches L1/L2/L3, ioreg para portas/controladoras USB4/Thunderbolt, ifconfig e df; coletores com fallbacks estruturados para Linux (/proc/cpuinfo, /sys/class/dmi, lsusb, lspci), Windows (WMI) e Android/Genérico",
+        "lib/features/hardware/hardware_screen.dart remodelada com sistema de abas dinâmicas inspirado em CPU-Z e HWiNFO: Visão Geral, Processador, Memória RAM, Gráficos & Telas, Placa-Mãe & EFI, USB & Conexões, Armazenamento, Rede e Peculiaridades de Plataforma",
+        "Aba Processador: detalha cluster de P-Cores e E-Cores, microarquitetura, caches L1i, L1d, L2 e L3, e conjuntos de instruções suportados (NEON, FP16, AES, CRC32, etc.)",
+        "Aba Memória RAM: expõe padrão LPDDR5, barramento, canais, fabricante dos chips e explica a arquitetura de memória unificada (UMA) on-package sem slots DIMM avulsos",
+        "Aba Gráficos & Telas: detalha núcleos da GPU, V-RAM integrada/dedicada, barramento e monitores conectados (resolução, taxa de atualização, perfil de cor P3)",
+        "Aba Placa-Mãe & EFI: placa lógica, chipset, versão do boot ROM/EFI, identificador de modelo e UUID",
+        "Aba USB & Conexões: controladoras de barramento xHCI e dispositivos USB/Thunderbolt conectados",
+        "Aba Peculiaridades de Plataforma: matriz educativa destacando diferenças de acesso a hardware entre macOS, Windows (WMI), Linux (permissões de root para DMI/SPD) e Android (sandbox SELinux)",
+        "dart analyze verificado com 0 erros e 0 avisos"
+      ],
+      "verified": {
+        "multiPlatformModels": true,
+        "granularCpuZTopology": true,
+        "unifiedMemoryDetailed": true,
+        "usbControllersMapped": true,
+        "dartAnalyzeClean": true
+      },
+      "commit": "5477c75",
+      "status": "em andamento na branch iter/v4"
     }
   ],
   "roadmap": {

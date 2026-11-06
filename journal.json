@@ -577,11 +577,11 @@
         "lib/features/benchmark/gpu_benchmark.dart: adicionados open3dWindow, close3dWindow e is3dWindowOpen no GpuBenchmarkService",
         "lib/features/stress/stress_screen.dart: removido botão duplicado; adicionada opção 'Janela 3D nativa ao vivo'; abertura automática ao iniciar e fechamento automático ao encerrar a duração escolhida (30s/60s/contínuo)",
         "macos/Runner/GpuBenchmark.swift: cena atualizada para FurMark Donut volumétrico com 4096 instâncias em toroide e fragment shader com 48 iterações de raymarching fractal (alta saturação de ALU)",
-        "macos/Runner/MainFlutterWindow.swift: framerate destravado no MTKView (preferredFramesPerSecond = 0, allowsNextDrawableTimeout = false) com VSync OFF real",
+        "macos/Runner/MainFlutterWindow.swift: corrigido preferredFramesPerSecond para 120 e fixado drawableSize em 1920x1080 com autoResizeDrawable=false para garantir render contínuo no MTKView",
         "Limpeza de artefatos temporários: removidos os arquivos mock de UI estática com timers simulados"
       ],
       "decision": "Janela 3D nativa integrada ao ciclo de vida do teste com fechamento automático e carga FurMark pesada para estresse térmico real de GPU",
-      "commit": "3b3aded",
+      "commit": "21010a3",
       "status": "concluído"
     }
   ],

@@ -583,6 +583,26 @@
       "decision": "Janela 3D nativa integrada ao ciclo de vida do teste com fechamento automático e carga FurMark pesada para estresse térmico real de GPU",
       "commit": "21010a3",
       "status": "concluído"
+    },
+    {
+      "date": "2026-11-06T18:30",
+      "phase": "Iteração 3 - Desvinculação de VSync (Uncapped FPS) + FurMark Donut Vulcânico",
+      "done": [
+        "macos/Runner/MainFlutterWindow.swift: desativado timer interno de 60Hz do MTKView (isPaused = true) que travava a taxa de quadros no refresh rate do monitor do MacBook (60 FPS / 16.67 ms)",
+        "macos/Runner/MainFlutterWindow.swift: implementado render loop desvinculado (VSync OFF livre) em thread dedicada DispatchQueue.global(qos: .userInteractive) consumindo CAMetalLayer.nextDrawable() imediatamente após a conclusão da GPU",
+        "Cálculo e HUD de FPS em tempo real: o HUD agora mede e exibe o throughput real e contínuo de quadros por segundo sem throttling de V-Sync",
+        "macos/Runner/GpuBenchmark.swift: correção completa da estética FurMark, eliminando o estouro de branco causado por excesso de canal azul, specular descalibrado e tonemapping saturado",
+        "macos/Runner/GpuBenchmark.swift: fundo atualizado para atmosfera vulcânica escura com vinheta circular, brasas incandescentes e névoa de calor com alto contraste",
+        "macos/Runner/GpuBenchmark.swift: shader de cena atualizado para 64 passos de raymarching/turbulência fractal 3D de alta intensidade (ALU-bound) com auto-sombreamento e paleta de magma vivo (carmesim profundo nas sombras, laranja ardente no corpo e dourado nas pontas)"
+      ],
+      "verified": {
+        "vsyncOff": true,
+        "uncappedLoop": true,
+        "furMarkLook": "vulcânico vivo (carmesim, laranja, dourado)",
+        "aluLoad": "64 passos de turbulência 3D fractal"
+      },
+      "commit": "f9ee6ef",
+      "status": "concluído"
     }
   ],
   "roadmap": {

@@ -54,6 +54,12 @@ class PlatformDetector {
   /// Versão síncrona para tema: usa cache (se null, assuming false).
   static bool isTouchscreen() => _cachedTouch ?? false;
 
+  /// Indica se a plataforma atual suporta processos de ajustes do sistema
+  /// (Atualização de pacotes, varredura de drivers e diagnóstico de hardware).
+  /// Disponível estritamente para Windows e Linux. Em outras plataformas (macOS, Android, etc.)
+  /// o recurso é completamente omitido sem disclaimers.
+  static bool get supportsSystemTweaks => Platform.isWindows || Platform.isLinux;
+
   /// Verifica se houve um pointer de tipo touch na sessão atual de gestos.
   /// (Uso futuro: alternar tema em runtime se usuário tocar com dedo em laptop touch.)
   static bool isTouchPointer(PointerDownEvent event) {

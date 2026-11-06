@@ -9,6 +9,7 @@ import 'features/hardware/hardware_screen.dart';
 import 'features/history/history_screen.dart';
 import 'features/sensors/sensors_screen.dart';
 import 'features/stress/stress_screen.dart';
+import 'features/system_tweaks/system_tweaks_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -44,7 +45,7 @@ class _HomeShell extends StatefulWidget {
 class _HomeShellState extends State<_HomeShell> {
   int _index = 0;
 
-  static const _titles = ['Hardware', 'Sensores', 'Bateria', 'Benchmark', 'Estresse', 'Histórico'];
+  static const _baseTitles = ['Hardware', 'Sensores', 'Bateria', 'Benchmark', 'Estresse', 'Histórico'];
   static const _wideBreakpoint = 860.0;
 
   void _select(int i) => setState(() => _index = i);
@@ -53,6 +54,15 @@ class _HomeShellState extends State<_HomeShell> {
   Widget build(BuildContext context) {
     final width = MediaQuery.sizeOf(context).width;
     final isWide = width >= _wideBreakpoint;
+    final supportsTweaks = PlatformDetector.supportsSystemTweaks;
+
+    final titles = [
+      ..._baseTitles,
+      if (supportsTweaks) 'Ajustes',
+    ];
+
+    // Garante que o índice não estoure caso o suporte mude dinamicamente
+    final safeIndex = _index < titles.length ? _index : 0;
 
     final pages = <Widget>[
       HardwareScreen(onRunCpu: () => _select(3)),
@@ -61,18 +71,19 @@ class _HomeShellState extends State<_HomeShell> {
       const BenchmarkScreen(),
       const StressScreen(),
       const HistoryScreen(),
+      if (supportsTweaks) const SystemTweaksScreen(),
     ];
 
     final body = AnimatedSwitcher(
       duration: const Duration(milliseconds: 180),
-      child: KeyedSubtree(key: ValueKey(_index), child: pages[_index]),
+      child: KeyedSubtree(key: ValueKey(safeIndex), child: pages[safeIndex]),
     );
 
     if (isWide) {
       return Scaffold(
         body: Column(
           children: [
-            TopNav(items: _titles, selected: _index, onSelect: _select),
+            TopNav(items: titles, selected: safeIndex, onSelect: _select),
             Expanded(child: body),
           ],
         ),
@@ -81,19 +92,21 @@ class _HomeShellState extends State<_HomeShell> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text('BMyBench — ${_titles[_index]}'),
+        title: Text('BMyBench — ${titles[safeIndex]}'),
       ),
       body: body,
       bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
+        selectedIndex: safeIndex,
         onDestinationSelected: _select,
-        destinations: const [
-          NavigationDestination(icon: Icon(Icons.memory), label: 'Hardware'),
-          NavigationDestination(icon: Icon(Icons.thermostat), label: 'Sensores'),
-          NavigationDestination(icon: Icon(Icons.battery_std), label: 'Bateria'),
-          NavigationDestination(icon: Icon(Icons.speed), label: 'Benchmark'),
-          NavigationDestination(icon: Icon(Icons.whatshot), label: 'Estresse'),
-          NavigationDestination(icon: Icon(Icons.history), label: 'Histórico'),
+        destinations: [
+          const NavigationDestination(icon: Icon(Icons.memory), label: 'Hardware'),
+          const NavigationDestination(icon: Icon(Icons.thermostat), label: 'Sensores'),
+          const NavigationDestination(icon: Icon(Icons.battery_std), label: 'Bateria'),
+          const NavigationDestination(icon: Icon(Icons.speed), label: 'Benchmark'),
+          const NavigationDestination(icon: Icon(Icons.whatshot), label: 'Estresse'),
+          const NavigationDestination(icon: Icon(Icons.history), label: 'Histórico'),
+          if (supportsTweaks)
+            const NavigationDestination(icon: Icon(Icons.tune_rounded), label: 'Ajustes'),
         ],
       ),
     );

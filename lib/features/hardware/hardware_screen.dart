@@ -14,7 +14,7 @@ import '../storage/storage_panel.dart';
 import 'hardware_models.dart';
 import 'hardware_service.dart';
 
-/// Tela "Hardware" granular inspirada em CPU-Z, GPU-Z e HWiNFO.
+/// Tela "Hardware" granular com inspeção detalhada por subsistema.
 /// Adapta a leitura e exibição com base na plataforma (macOS, Linux, Windows, Android).
 class HardwareScreen extends StatefulWidget {
   final VoidCallback? onRunCpu;
@@ -37,7 +37,7 @@ class _HardwareScreenState extends State<HardwareScreen> {
   Timer? _timer;
   bool _loading = true;
 
-  // Categoria ativa (estilo CPU-Z / HWiNFO)
+  // Categoria ativa
   int _selectedCategoryIndex = 0;
 
   static const _categories = [
@@ -125,7 +125,7 @@ class _HardwareScreenState extends State<HardwareScreen> {
             ),
             const SizedBox(height: 20),
 
-            // Barra de abas/filtros estilo CPU-Z / HWiNFO
+            // Barra de abas/filtros de categorias
             _CategoryTabBar(
               selectedIndex: _selectedCategoryIndex,
               categories: _categories,
@@ -170,7 +170,7 @@ class _HardwareScreenState extends State<HardwareScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Barra de navegação por categorias (estilo abas CPU-Z)
+// Barra de navegação por categorias
 // ---------------------------------------------------------------------------
 
 class _CategoryTabBar extends StatefulWidget {
@@ -709,7 +709,7 @@ class _OverviewTab extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// ABA 1: Processador (CPU-Z)
+// ABA 1: Processador
 // ---------------------------------------------------------------------------
 
 class _CpuTab extends StatelessWidget {
@@ -729,7 +729,7 @@ class _CpuTab extends StatelessWidget {
             children: [
               const SectionHeader(
                 icon: Icons.memory,
-                eyebrow: 'CPU-Z HARDWARE INSPECTOR',
+                eyebrow: 'DETALHES DO PROCESSADOR',
                 title: 'Arquitetura e Núcleos do Processador',
                 description:
                     'Detalhamento profundo da topologia de núcleos, hierarquia de cache L1/L2/L3 e extensões de instruções suportadas.',
@@ -871,7 +871,7 @@ class _MemoryTab extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// ABA 3: Gráficos & Telas (GPU-Z)
+// ABA 3: Gráficos & Telas
 // ---------------------------------------------------------------------------
 
 class _GpuTab extends StatelessWidget {
@@ -891,7 +891,7 @@ class _GpuTab extends StatelessWidget {
             children: [
               const SectionHeader(
                 icon: Icons.videogame_asset_outlined,
-                eyebrow: 'GPU-Z GRAPHICS INSPECTOR',
+                eyebrow: 'DETALHE DA GPU',
                 title: 'Acelerador Gráfico & Displays',
                 description:
                     'Mapeamento detalhado dos núcleos de sombreamento, suporte a APIs modernas e telas conectadas.',
@@ -972,7 +972,7 @@ class _MotherboardTab extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// ABA 5: USB & Conexões (HWiNFO)
+// ABA 5: USB & Conexões
 // ---------------------------------------------------------------------------
 
 class _UsbTab extends StatelessWidget {
@@ -992,7 +992,7 @@ class _UsbTab extends StatelessWidget {
             children: [
               const SectionHeader(
                 icon: Icons.usb,
-                eyebrow: 'HWiNFO BUS MONITOR',
+                eyebrow: 'DETALHES DE CONEXÕES & BARRAMENTOS',
                 title: 'Barramentos USB e Thunderbolt',
                 description:
                     'Controladoras de host xHCI, barramentos Thunderbolt 4 / USB4 e portas físicas do dispositivo.',

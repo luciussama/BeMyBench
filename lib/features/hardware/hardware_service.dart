@@ -3,7 +3,7 @@ import 'dart:io';
 
 import 'hardware_models.dart';
 
-/// Informações completas de hardware com granularidade nível CPU-Z, GPU-Z e HWiNFO.
+/// Informações completas de hardware com granularidade aprofundada por componente.
 class HardwareInfo {
   // Campos legados (compatibilidade com telas anteriores)
   final String hostname;
@@ -161,7 +161,7 @@ class HardwareService {
           : (machineName.contains('Pro') ? 'MacBook Pro' : 'Mac Desktop'),
     );
 
-    // CPU (CPU-Z style)
+    // Processador / CPU
     final totalCores = int.tryParse(getSysctl('hw.physicalcpu')) ?? Platform.numberOfProcessors;
     final totalThreads = int.tryParse(getSysctl('hw.logicalcpu')) ?? totalCores;
     final pCores = int.tryParse(getSysctl('hw.perflevel0.physicalcpu')) ?? 4;
@@ -221,7 +221,7 @@ class HardwareService {
           'Não existem slots físicos DIMM ou SODIMM; a CPU, GPU e Neural Engine compartilham o mesmo pool de memória com zero-copy.',
     );
 
-    // GPU & Displays (GPU-Z style)
+    // GPU & Displays
     final gpuModel = dispMap?['sppci_model']?.toString() ?? '$chipName GPU';
     final gpuCores = int.tryParse(dispMap?['sppci_cores']?.toString() ?? '8') ?? 8;
     final gpuVendor = dispMap?['spdisplays_vendor']?.toString().replaceAll('sppci_vendor_', '') ?? 'Apple';

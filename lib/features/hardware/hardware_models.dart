@@ -1,4 +1,4 @@
-/// Modelos de dados granulares de hardware (estilo CPU-Z, GPU-Z e HWiNFO)
+/// Modelos de dados granulares de hardware por componente e subsistema
 /// com suporte a adaptação dinâmica entre macOS, Windows, Linux e Android.
 library hardware_models;
 

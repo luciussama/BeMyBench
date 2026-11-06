@@ -49,3 +49,8 @@ app.*.map.json
 
 # Rust build artifacts
 /rust/target/
+
+# LLM / Agent instructions and journal
+journal.json
+AGENTS.md
+

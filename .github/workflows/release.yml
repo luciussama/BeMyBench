@@ -33,20 +33,23 @@ jobs:
 
       - name: Configurar Rust
         uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: aarch64-linux-android, x86_64-linux-android, armv7-linux-androideabi
+
+      - name: Adicionar Targets Rust para Android
+        run: rustup target add aarch64-linux-android x86_64-linux-android armv7-linux-androideabi
 
       - name: Instalar cargo-ndk
         run: cargo install cargo-ndk
 
       - name: Configurar Android NDK
+        id: setup-ndk
         uses: nttld/setup-ndk@v1
         with:
           ndk-version: r26b
 
-      - name: "Compilar Core Rust para Android (arm64-v8a, armeabi-v7a, x86_64)"
+      - name: "Compilar Core Rust para Android"
         run: |
           mkdir -p android/app/src/main/jniLibs
+          export ANDROID_NDK_HOME="${{ steps.setup-ndk.outputs.ndk-path }}"
           cd rust
           cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o ../android/app/src/main/jniLibs build --release
           cd ..
@@ -105,7 +108,7 @@ jobs:
         run: flutter pub get
 
       - name: Compilar Aplicativo macOS
-        run: flutter build macos --release
+        run: flutter build macos --release --no-codesign
 
       - name: Embutir dylib Rust no Bundle e Criar DMG
         run: |
@@ -161,7 +164,7 @@ jobs:
       - name: Copiar DLL Rust e Compactar Release
         shell: pwsh
         run: |
-          $ReleaseDir = "build/windows/x64/runner/Release"
+          $ReleaseDir = if (Test-Path "build/windows/x64/runner/Release") { "build/windows/x64/runner/Release" } else { "build/windows/runner/Release" }
           Copy-Item "rust/target/release/bemybench_core.dll" -Destination "$ReleaseDir/"
           New-Item -ItemType Directory -Force -Path "artifacts"
           Compress-Archive -Path "$ReleaseDir/*" -DestinationPath "artifacts/bemybench-windows-x64.zip"
@@ -173,7 +176,7 @@ jobs:
           path: artifacts/bemybench-windows-x64.zip
 
   # ===========================================================================
-  # 4. LINUX: Compilação do Rust Core e Empacotamento Linux (tar.gz e AppImage)
+  # 4. LINUX: Compilação do Rust Core e Empacotamento Linux (tar.gz)
   # ===========================================================================
   build-linux:
     name: Build Linux x64
@@ -213,7 +216,7 @@ jobs:
 
       - name: Embutir lib Rust e Compactar Pacote Linux
         run: |
-          BUNDLE="build/linux/x64/release/bundle"
+          BUNDLE=$(find build/linux -name bundle -type d | head -n 1)
           mkdir -p "$BUNDLE/lib"
           cp rust/target/release/libbemybench_core.so "$BUNDLE/lib/"
           
@@ -245,24 +248,28 @@ jobs:
         with:
           name: android-package
           path: release_assets
+          merge-multiple: true
 
       - name: Baixar Pacote macOS
         uses: actions/download-artifact@v4
         with:
           name: macos-package
           path: release_assets
+          merge-multiple: true
 
       - name: Baixar Pacote Windows
         uses: actions/download-artifact@v4
         with:
           name: windows-package
           path: release_assets
+          merge-multiple: true
 
       - name: Baixar Pacote Linux
         uses: actions/download-artifact@v4
         with:
           name: linux-package
           path: release_assets
+          merge-multiple: true
 
       - name: Determinar Tag da Release
         id: tag_step
@@ -276,6 +283,7 @@ jobs:
       - name: Criar e Publicar GitHub Release com os 4 Pacotes
         uses: softprops/action-gh-release@v2
         with:
+          token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ steps.tag_step.outputs.RELEASE_TAG }}
           name: "BMyBench ${{ steps.tag_step.outputs.RELEASE_TAG }} — Release Multi-Plataforma"
           draft: false

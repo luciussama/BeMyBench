@@ -33,6 +33,8 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
     if (GpuBenchmarkService.isSupported) 'gpu_render',
   };
 
+  bool _show3dWindow = true;
+
   bool _running = false;
   String _current = '';
   String? _error;
@@ -60,6 +62,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
   void dispose() {
     _elapsedTimer?.cancel();
     _chartTimer?.cancel();
+    unawaited(GpuBenchmarkService().close3dWindow());
     super.dispose();
   }
 
@@ -144,6 +147,12 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
           _done++;
         });
       }
+
+      final hasGpuTests = _selected.contains('gpu') || _selected.contains('gpu_render');
+      if (hasGpuTests && _show3dWindow) {
+        unawaited(GpuBenchmarkService().open3dWindow(mode: 'benchmark'));
+      }
+
       if (_selected.contains('gpu')) {
         setState(() => _current = 'GPU compute');
         final r = await GpuBenchmarkService().run(durationMs: 1500);
@@ -162,10 +171,15 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
           _done++;
         });
       }
+
+      if (hasGpuTests && _show3dWindow) {
+        unawaited(GpuBenchmarkService().close3dWindow());
+      }
     } catch (e) {
       if (!mounted) return;
       setState(() => _error = e.toString());
     } finally {
+      unawaited(GpuBenchmarkService().close3dWindow());
       _elapsedTimer?.cancel();
       if (_error == null && _done > 0 && mounted) {
         // Salva a execução no histórico local (falha de persistência não trava a UI)
@@ -298,9 +312,9 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
               FeatureChip(
                 label: 'Janela 3D (Ao Vivo)',
                 color: AppColors.orange,
-                selected: false,
+                selected: _show3dWindow,
                 enabled: !_running,
-                onTap: () => GpuBenchmarkService().open3dWindow(mode: 'benchmark'),
+                onTap: () => setState(() => _show3dWindow = !_show3dWindow),
               ),
           ],
         ),

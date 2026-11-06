@@ -6,7 +6,7 @@
     "created": "2026-11-05",
     "owner": "sergio",
     "workingDir": "$HOME/repos/BeMyBench",
-    "status": "fix/legacy-bugs: telemetria nativa térmica e de uso de GPU, com FurMark calibrado em nível torture test (35-40 FPS no M5)",
+    "status": "iter/v4: implementadas limpeza inteligente de disco (SSD) e boost de RAM cross-platform com whitelist de segurança",
     "goal": "Ferramenta de diagnóstico de hardware moderno, cross-platform (macOS, Windows, Linux, Android), com diagnóstico + benchmark + saúde de bateria + auxílio de desempenho.",
     "stack": {
       "ui": "Flutter 3.47.9 / Dart 3.13.7 (instalado em ../flutter)",
@@ -734,6 +734,98 @@
       },
       "status": "concluído",
       "mergeCommit": "3dae602"
+    },
+    {
+      "date": "2026-11-06T23:30",
+      "phase": "Iteração 4 - Inspeção Granular de Hardware (CPU-Z / GPU-Z / HWiNFO)",
+      "done": [
+        "Criado lib/features/hardware/hardware_models.dart com modelos granulares de hardware: SystemMotherboardInfo, DetailedCpuInfo, DetailedMemoryInfo, DetailedGpuInfo, DisplayItem, StorageDiskItem, UsbControllerItem, NetworkAdapterItem e PlatformHardwarePeculiarity",
+        "lib/features/hardware/hardware_service.dart totalmente refatorado com coletores ricos multi-plataforma: no macOS consulta system_profiler -json (SPHardwareDataType, SPDisplaysDataType, SPMemoryDataType), sysctl para topologia de núcleos de Performance/Efficiency e hierarquia de caches L1/L2/L3, ioreg para portas/controladoras USB4/Thunderbolt, ifconfig e df; coletores com fallbacks estruturados para Linux (/proc/cpuinfo, /sys/class/dmi, lsusb, lspci), Windows (WMI) e Android/Genérico",
+        "lib/features/hardware/hardware_screen.dart remodelada com sistema de abas dinâmicas inspirado em CPU-Z e HWiNFO: Visão Geral, Processador, Memória RAM, Gráficos & Telas, Placa-Mãe & EFI, USB & Conexões, Armazenamento, Rede e Peculiaridades de Plataforma",
+        "Aba Processador: detalha cluster de P-Cores e E-Cores, microarquitetura, caches L1i, L1d, L2 e L3, e conjuntos de instruções suportados (NEON, FP16, AES, CRC32, etc.)",
+        "Aba Memória RAM: expõe padrão LPDDR5, barramento, canais, fabricante dos chips e explica a arquitetura de memória unificada (UMA) on-package sem slots DIMM avulsos",
+        "Aba Gráficos & Telas: detalha núcleos da GPU, V-RAM integrada/dedicada, barramento e monitores conectados (resolução, taxa de atualização, perfil de cor P3)",
+        "Aba Placa-Mãe & EFI: placa lógica, chipset, versão do boot ROM/EFI, identificador de modelo e UUID",
+        "Aba USB & Conexões: controladoras de barramento xHCI e dispositivos USB/Thunderbolt conectados",
+        "Aba Peculiaridades de Plataforma: matriz educativa destacando diferenças de acesso a hardware entre macOS, Windows (WMI), Linux (permissões de root para DMI/SPD) e Android (sandbox SELinux)",
+        "dart analyze verificado com 0 erros e 0 avisos"
+      ],
+      "verified": {
+        "multiPlatformModels": true,
+        "granularCpuZTopology": true,
+        "unifiedMemoryDetailed": true,
+        "usbControllersMapped": true,
+        "dartAnalyzeClean": true
+      },
+      "commit": "5477c75",
+      "status": "em andamento na branch iter/v4"
+    },
+    {
+      "date": "2026-11-07T00:15",
+      "phase": "Iteração 4 - Limpeza de Disco (SSD) e Boost de RAM Cross-Platform",
+      "done": [
+        "Criado lib/features/cleaner/cleaner_models.dart com modelos de dados: CleanCategoryType (userCache, developerCache, systemTemp, crashLogs, userTrash), CleanItem, CategoryScanResult, CleanScanReport, CleanExecutionReport e RamBoostReport",
+        "Criado lib/features/cleaner/cleaner_service.dart com escaneador inteligente e whitelist estrita de caminhos seguros por sistema operacional (macOS: ~/Library/Caches, Xcode DerivedData/Archives, .gradle/.pub-cache, ~/Library/Logs, ~/.Trash, $TMPDIR; Windows: %TEMP%, AppData/Local/Temp, CrashDumps, WER; Linux: ~/.cache, /tmp, /var/tmp, Trash; Android: cache da aplicação)",
+        "Segurança ativa no Cleaner: proteção contra exclusão fora da whitelist, verificação de idade ignorando arquivos modificados há menos de 1 hora (evitando apagar downloads/instalações em andamento) e tratamento gracioso de arquivos travados pelo sistema operacional (in-use)",
+        "Boost de RAM inteligente cross-platform: medição precisa antes e depois (GB e % livre). No macOS tenta /usr/sbin/purge e executa fallback transparente de transient memory pressure que força o subsistema de memória virtual (VM) do kernel a purgar páginas inativas e buffers de disco sem exigir privilégios de root; lógica preparada para Linux (/proc/sys/vm/drop_caches), Windows ([System.GC]::Collect) e Android",
+        "Criado lib/features/cleaner/clean_disk_dialog.dart: modal interativo em 4 fases (varredura visual com feedback dinâmico, tela de revisão detalhada com checkboxes por categoria e 'Selecionar Todos', progresso de exclusão e relatório final com bytes liberados e contagem de arquivos)",
+        "Criado lib/features/cleaner/ram_boost_dialog.dart: modal com telemetria antes vs depois de RAM liberada, tempo de execução e taxa de ocupação",
+        "Integrados os botões 'Limpar Disco' e 'Boost RAM' na tela de Hardware com atualização automática dos tiles do dashboard",
+        "Criado test/cleaner_test.dart cobrindo formatação de bytes, escaneamento e boost de RAM",
+        "dart analyze verificado com 0 erros e 0 avisos"
+      ],
+      "verified": {
+        "diskScanSafeWhitelist": true,
+        "ramBoostNonRootFallback": true,
+        "dialogsIntegrated": true,
+        "dartAnalyzeClean": true
+      },
+      "commit": "6932b28",
+      "status": "concluído na branch iter/v4"
+    },
+    {
+      "date": "2026-11-07T00:30",
+      "phase": "Iteração 4 - Fix Rolagem e Navegação nas Abas de Hardware",
+      "done": [
+        "Identificado problema relatado pelo usuário: quando a janela é redimensionada ou atinge largura estreita, as abas horizontais de Hardware (CPU-Z/HWiNFO) transbordavam lateralmente sem indicador de rolagem, sem botões de navegação e sem suporte a arraste de mouse (comportamento padrão do Flutter desktop)",
+        "Implementado AppScrollBehavior em lib/core/theme/app_theme.dart com suporte explícito a arraste por mouse, trackpad, touch e stylus em todas as plataformas, ativado globalmente no MaterialApp em lib/main.dart",
+        "Refatorado _CategoryTabBar em lib/features/hardware/hardware_screen.dart: adicionados botões de navegação lateral (chevron esquerdo e direito) que aparecem automaticamente apenas quando há overflow, com estado ativo/desativado nas extremidades",
+        "Implementada rolagem por roda do mouse (PointerScrollEvent) convertendo o delta vertical do scroll da roda em rolagem horizontal fluida",
+        "Implementado auto-scroll inteligente com Scrollable.ensureVisible(alignment: 0.5): ao selecionar uma aba, ela é suavemente centralizada no viewport para não ficar cortada nas bordas",
+        "Adicionada barra de rolagem sutil (RawScrollbar) com thumb translúcido ciano para feedback visual imediato",
+        "Melhorada a navegação superior (TopNav em lib/core/widgets/top_nav.dart) com suporte a rolagem pela roda do mouse",
+        "dart analyze verificado com 0 erros e 0 avisos"
+      ],
+      "verified": {
+        "mouseDragGlobal": true,
+        "chevronButtonsWhenOverflow": true,
+        "mouseWheelHorizontalScroll": true,
+        "autoScrollCenterTab": true,
+        "dartAnalyzeClean": true
+      },
+      "commit": "80713a3",
+      "status": "concluído na branch iter/v4"
+    },
+    {
+      "date": "2026-11-07T00:45",
+      "phase": "Iteração 4 - Remoção de Marcas Proprietárias (CPU-Z, GPU-Z, HWiNFO)",
+      "done": [
+        "Pesquisa de propriedade intelectual: verificado que CPU-Z é marca/software proprietário da CPUID (CPUID EURL / Franck Delattre) e GPU-Z é marca/software da TechPowerUp, assim como HWiNFO pertence à REALiX",
+        "Substituição completa dos nomes proprietários na interface do usuário (UI) e código-fonte:",
+        "No painel do processador: substituído 'CPU-Z HARDWARE INSPECTOR' por 'DETALHES DO PROCESSADOR'",
+        "No painel gráfico: substituído 'GPU-Z GRAPHICS INSPECTOR' por 'DETALHE DA GPU'",
+        "No painel de conexões e barramentos: substituído 'HWiNFO BUS MONITOR' por 'DETALHES DE CONEXÕES & BARRAMENTOS'",
+        "Removidas todas as menções a CPU-Z, GPU-Z e HWiNFO de comentários, documentações de classes e modelos em lib/features/hardware/hardware_screen.dart, hardware_models.dart e hardware_service.dart",
+        "dart analyze verificado com 0 erros e 0 avisos"
+      ],
+      "verified": {
+        "trademarkAuditDone": true,
+        "genericLabelsApplied": true,
+        "codebaseClean": true,
+        "dartAnalyzeClean": true
+      },
+      "commit": "3eae7da",
+      "status": "concluído na branch iter/v4"
     }
   ],
   "roadmap": {

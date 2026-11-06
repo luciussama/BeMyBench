@@ -28,6 +28,7 @@ class BMyBenchApp extends StatelessWidget {
       theme: AppTheme.light(isTouch: isTouch),
       darkTheme: AppTheme.dark(isTouch: isTouch),
       themeMode: ThemeMode.dark,
+      scrollBehavior: const AppScrollBehavior(),
       home: const _HomeShell(),
     );
   }

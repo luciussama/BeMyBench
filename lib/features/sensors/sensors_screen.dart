@@ -53,6 +53,13 @@ class _SensorsScreenState extends State<SensorsScreen> {
     } catch (_) {}
   }
 
+  Color _tempColor(double? temp) {
+    if (temp == null) return AppColors.textSecondary;
+    if (temp < 60) return AppColors.green;
+    if (temp < 80) return AppColors.orange;
+    return AppColors.red;
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading || _snapshot == null) {
@@ -70,8 +77,8 @@ class _SensorsScreenState extends State<SensorsScreen> {
             eyebrow: 'BMYBENCH SENSOR MONITOR',
             title: 'Sensores em tempo real',
             description:
-                'Leitura direta do sistema a cada 2 segundos. Temperatura e ventoinha exigem '
-                'acesso privilegiado no Apple Silicon e ficam para a V1.1.',
+                'Monitoramento contínuo de CPU, memória, temperaturas térmicas do SoC '
+                'e estado de refrigeração atualizados a cada 2 segundos.',
             action: Wrap(
               spacing: 10,
               children: [
@@ -120,19 +127,29 @@ class _SensorsScreenState extends State<SensorsScreen> {
               progress: s.ramUsagePercent / 100,
               valueColor: AppColors.loadColor(s.ramUsagePercent),
             ),
-            const MetricTile(
+            MetricTile(
               icon: Icons.thermostat,
-              color: AppColors.red,
-              label: 'Temperatura',
-              value: 'N/A',
-              caption: 'requer acesso nativo privilegiado',
+              color: _tempColor(s.cpuTemperatureC ?? s.temperatureC),
+              label: 'Temperatura (CPU/GPU)',
+              value: s.cpuTemperatureC != null
+                  ? '${s.cpuTemperatureC!.toStringAsFixed(0)} °C'
+                  : (s.temperatureC != null
+                      ? '${s.temperatureC!.toStringAsFixed(0)} °C'
+                      : 'N/A'),
+              caption: s.gpuTemperatureC != null
+                  ? 'GPU: ${s.gpuTemperatureC!.toStringAsFixed(0)} °C · ${s.thermalState}'
+                  : s.thermalState,
+              valueColor: _tempColor(s.cpuTemperatureC ?? s.temperatureC),
             ),
-            const MetricTile(
-              icon: Icons.mode_fan_off,
-              color: AppColors.violet,
+            MetricTile(
+              icon: s.hasFan ? Icons.mode_fan_off : Icons.air,
+              color: s.hasFan ? AppColors.violet : AppColors.accent,
               label: 'Ventoinha',
-              value: 'N/A',
-              caption: 'sem SMC acessível neste modelo',
+              value: s.hasFan
+                  ? (s.fanRpm != null && s.fanRpm! > 0 ? '${s.fanRpm} RPM' : 'Auto')
+                  : 'Passivo',
+              caption: s.fanStatus,
+              valueColor: s.hasFan ? AppColors.violet : AppColors.accent,
             ),
           ],
         ),

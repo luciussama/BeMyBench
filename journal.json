@@ -6,7 +6,7 @@
     "created": "2026-11-05",
     "owner": "sergio",
     "workingDir": "$HOME/repos/BeMyBench",
-    "status": "iter/v2: storage breakdown + historico de benchmarks (auto-save)",
+    "status": "iter/v3: janela 3D nativa (FurMark-like) Metal com VSync OFF, HUD ao vivo e ciclo de vida integrado",
     "goal": "Ferramenta de diagnóstico de hardware moderno, cross-platform (macOS, Windows, Linux, Android), com diagnóstico + benchmark + saúde de bateria + auxílio de desempenho.",
     "stack": {
       "ui": "Flutter 3.47.9 / Dart 3.13.7 (instalado em ../flutter)",
@@ -619,6 +619,25 @@
       },
       "commit": "368c693",
       "status": "concluído"
+    },
+    {
+      "date": "2026-11-06T19:30",
+      "phase": "Iteração 3 - Conclusão e Merge na main",
+      "done": [
+        "Iteração 3 concluída com sucesso: Janela 3D nativa flutuante em Metal com estética FurMark Donut vulcânica (magma, carmesim, dourado)",
+        "Carga pesada de 64 passos de raymarching fractal 3D (ALU-bound) com auto-sombreamento",
+        "Render loop desvinculado (VSync OFF livre) em thread dedicada consumindo CAMetalLayer.nextDrawable() a taxas reais sem travar em 60Hz",
+        "HUD nativo sobre a cena com FPS dinâmico real, tempo de quadro (ms), V-RAM alocada, status e modo",
+        "Ciclo de vida automático integrado na tela de Estresse (abre com Iniciar Estresse e fecha no fim da duração) e na tela de Benchmark (chip atua como toggle, abrindo apenas durante os testes de GPU e fechando em seguida)",
+        "Merge do branch iter/v3 para main realizado com histórico limpo e rastreado"
+      ],
+      "verified": {
+        "cleanBuild": true,
+        "unthrottledLoop": true,
+        "lifecycleSynced": true,
+        "mergedToMain": true
+      },
+      "status": "concluído"
     }
   ],
   "roadmap": {
@@ -640,8 +659,6 @@
     "Implementar System Info de GPU (system_profiler no macOS)",
     "Storage breakdown (df -h por volume no macOS)",
     "Remover aviso de stale file (flutter clean) e ajustar const lints",
-    "janela 3D Metal/Vulkan",
-    "HUD dentro da janela",
     "Vulkan demais OS"
   ],
   "openQuestions": [

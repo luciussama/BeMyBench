@@ -16,10 +16,42 @@ permissions:
 
 jobs:
   # ===========================================================================
-  # 1. ANDROID: Compilação do Rust Core (NDK) e Geração do APK
+  # 1. CREATE RELEASE: Cria imediatamente a Release no GitHub
+  # ===========================================================================
+  create-release:
+    name: Criar Release no GitHub
+    runs-on: ubuntu-latest
+    outputs:
+      release_tag: ${{ steps.tag_step.outputs.RELEASE_TAG }}
+    steps:
+      - name: Checkout repositório
+        uses: actions/checkout@v4
+
+      - name: Determinar Tag da Release
+        id: tag_step
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "RELEASE_TAG=${{ github.event.inputs.version_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Criar Release Pública Inicial
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ steps.tag_step.outputs.RELEASE_TAG }}
+          name: "BMyBench ${{ steps.tag_step.outputs.RELEASE_TAG }} — Release Multi-Plataforma"
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+
+  # ===========================================================================
+  # 2. ANDROID: Compilação do Rust Core (NDK) e Upload do APK na Release
   # ===========================================================================
   build-android:
     name: Build Android APK
+    needs: [create-release]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repositório
@@ -67,22 +99,24 @@ jobs:
       - name: Compilar APK de Release
         run: flutter build apk --release
 
-      - name: Renomear e Preparar Artefato Android
+      - name: Preparar Artefato Android
         run: |
           mkdir -p artifacts
           cp build/app/outputs/flutter-apk/app-release.apk artifacts/bemybench-android.apk
 
-      - name: Upload Artefato Android
-        uses: actions/upload-artifact@v4
+      - name: Upload Direto do APK na Release do GitHub
+        uses: softprops/action-gh-release@v2
         with:
-          name: android-package
-          path: artifacts/bemybench-android.apk
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ needs.create-release.outputs.release_tag }}
+          files: artifacts/bemybench-android.apk
 
   # ===========================================================================
-  # 2. MACOS: Compilação do Rust Core e Empacotamento em DMG
+  # 3. MACOS: Compilação do Rust Core, Empacotamento DMG e Upload na Release
   # ===========================================================================
   build-macos:
     name: Build macOS DMG
+    needs: [create-release]
     runs-on: macos-latest
     steps:
       - name: Checkout repositório
@@ -121,17 +155,19 @@ jobs:
           mkdir -p artifacts
           hdiutil create -volname "BMyBench" -srcfolder "$APP" -ov -format UDZO artifacts/bemybench-macos.dmg
 
-      - name: Upload Artefato macOS
-        uses: actions/upload-artifact@v4
+      - name: Upload Direto do DMG na Release do GitHub
+        uses: softprops/action-gh-release@v2
         with:
-          name: macos-package
-          path: artifacts/bemybench-macos.dmg
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ needs.create-release.outputs.release_tag }}
+          files: artifacts/bemybench-macos.dmg
 
   # ===========================================================================
-  # 3. WINDOWS: Compilação do Rust Core e Empacotamento em ZIP
+  # 4. WINDOWS: Compilação do Rust Core, ZIP e Upload na Release
   # ===========================================================================
   build-windows:
     name: Build Windows x64
+    needs: [create-release]
     runs-on: windows-latest
     steps:
       - name: Checkout repositório
@@ -167,19 +203,21 @@ jobs:
           $ReleaseDir = if (Test-Path "build/windows/x64/runner/Release") { "build/windows/x64/runner/Release" } else { "build/windows/runner/Release" }
           Copy-Item "rust/target/release/bemybench_core.dll" -Destination "$ReleaseDir/"
           New-Item -ItemType Directory -Force -Path "artifacts"
-          Compress-Archive -Path "$ReleaseDir/*" -DestinationPath "artifacts/bemybench-windows-x64.zip"
+          Compress-Archive -Path "$ReleaseDir/*" -DestinationPath "artifacts/bemybench-windows-x64.zip" -Force
 
-      - name: Upload Artefato Windows
-        uses: actions/upload-artifact@v4
+      - name: Upload Direto do ZIP na Release do GitHub
+        uses: softprops/action-gh-release@v2
         with:
-          name: windows-package
-          path: artifacts/bemybench-windows-x64.zip
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ needs.create-release.outputs.release_tag }}
+          files: artifacts/bemybench-windows-x64.zip
 
   # ===========================================================================
-  # 4. LINUX: Compilação do Rust Core e Empacotamento Linux (tar.gz)
+  # 5. LINUX: Compilação do Rust Core, Pacote e Upload na Release
   # ===========================================================================
   build-linux:
     name: Build Linux x64
+    needs: [create-release]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repositório
@@ -223,74 +261,9 @@ jobs:
           mkdir -p artifacts
           tar -czvf artifacts/bemybench-linux-x64.tar.gz -C "$BUNDLE" .
 
-      - name: Upload Artefato Linux
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-package
-          path: artifacts/bemybench-linux-x64.tar.gz
-
-  # ===========================================================================
-  # 5. PUBLISH RELEASE: Publica a Release no GitHub com os 4 pacotes
-  # ===========================================================================
-  publish-release:
-    name: Publicar GitHub Release
-    needs: [build-android, build-macos, build-windows, build-linux]
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repositório
-        uses: actions/checkout@v4
-
-      - name: Criar diretório de download
-        run: mkdir -p release_assets
-
-      - name: Baixar Pacote Android
-        uses: actions/download-artifact@v4
-        with:
-          name: android-package
-          path: release_assets
-          merge-multiple: true
-
-      - name: Baixar Pacote macOS
-        uses: actions/download-artifact@v4
-        with:
-          name: macos-package
-          path: release_assets
-          merge-multiple: true
-
-      - name: Baixar Pacote Windows
-        uses: actions/download-artifact@v4
-        with:
-          name: windows-package
-          path: release_assets
-          merge-multiple: true
-
-      - name: Baixar Pacote Linux
-        uses: actions/download-artifact@v4
-        with:
-          name: linux-package
-          path: release_assets
-          merge-multiple: true
-
-      - name: Determinar Tag da Release
-        id: tag_step
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "RELEASE_TAG=${{ github.event.inputs.version_tag }}" >> $GITHUB_OUTPUT
-          else
-            echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          fi
-
-      - name: Criar e Publicar GitHub Release com os 4 Pacotes
+      - name: Upload Direto do Pacote Linux na Release do GitHub
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: ${{ steps.tag_step.outputs.RELEASE_TAG }}
-          name: "BMyBench ${{ steps.tag_step.outputs.RELEASE_TAG }} — Release Multi-Plataforma"
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-          files: |
-            release_assets/bemybench-android.apk
-            release_assets/bemybench-macos.dmg
-            release_assets/bemybench-windows-x64.zip
-            release_assets/bemybench-linux-x64.tar.gz
+          tag_name: ${{ needs.create-release.outputs.release_tag }}
+          files: artifacts/bemybench-linux-x64.tar.gz

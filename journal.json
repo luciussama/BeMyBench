@@ -782,6 +782,29 @@
       },
       "commit": "6932b28",
       "status": "concluído na branch iter/v4"
+    },
+    {
+      "date": "2026-11-07T00:30",
+      "phase": "Iteração 4 - Fix Rolagem e Navegação nas Abas de Hardware",
+      "done": [
+        "Identificado problema relatado pelo usuário: quando a janela é redimensionada ou atinge largura estreita, as abas horizontais de Hardware (CPU-Z/HWiNFO) transbordavam lateralmente sem indicador de rolagem, sem botões de navegação e sem suporte a arraste de mouse (comportamento padrão do Flutter desktop)",
+        "Implementado AppScrollBehavior em lib/core/theme/app_theme.dart com suporte explícito a arraste por mouse, trackpad, touch e stylus em todas as plataformas, ativado globalmente no MaterialApp em lib/main.dart",
+        "Refatorado _CategoryTabBar em lib/features/hardware/hardware_screen.dart: adicionados botões de navegação lateral (chevron esquerdo e direito) que aparecem automaticamente apenas quando há overflow, com estado ativo/desativado nas extremidades",
+        "Implementada rolagem por roda do mouse (PointerScrollEvent) convertendo o delta vertical do scroll da roda em rolagem horizontal fluida",
+        "Implementado auto-scroll inteligente com Scrollable.ensureVisible(alignment: 0.5): ao selecionar uma aba, ela é suavemente centralizada no viewport para não ficar cortada nas bordas",
+        "Adicionada barra de rolagem sutil (RawScrollbar) com thumb translúcido ciano para feedback visual imediato",
+        "Melhorada a navegação superior (TopNav em lib/core/widgets/top_nav.dart) com suporte a rolagem pela roda do mouse",
+        "dart analyze verificado com 0 erros e 0 avisos"
+      ],
+      "verified": {
+        "mouseDragGlobal": true,
+        "chevronButtonsWhenOverflow": true,
+        "mouseWheelHorizontalScroll": true,
+        "autoScrollCenterTab": true,
+        "dartAnalyzeClean": true
+      },
+      "commit": "80713a3",
+      "status": "concluído na branch iter/v4"
     }
   ],
   "roadmap": {

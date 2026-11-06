@@ -677,6 +677,25 @@
       },
       "commit": "6707bef",
       "status": "concluído"
+    },
+    {
+      "date": "2026-11-06T20:20",
+      "phase": "Fix Estresse GPU - Saturação Máxima (16k instâncias, fBm e Furnace Compute)",
+      "done": [
+        "macos/Runner/GpuBenchmark.swift: quadruplicado número de instâncias do FurMark de 4.096 para 16.384 (128x128 no toroide), eliminando as lacunas entre cubos e transformando o donut numa pelagem contínua, densa e espessa de magma",
+        "macos/Runner/GpuBenchmark.swift: shader de cena expandido para 96 passos de raymarching fractal 3D e self-shadowing volumétrico",
+        "macos/Runner/GpuBenchmark.swift: shader de fundo (sky) atualizado com 6 oitavas de ruído fractal fBm procedural, mantendo todos os pixels do viewport sob carga constante de ALU",
+        "macos/Runner/GpuBenchmark.swift: implementado passe 'burnInCompute' acoplado ao command buffer com 128 iterações de compute em 2.073.600 threads, saturando todas as unidades vetoriais/ALU da GPU e eliminando a janela ociosa imposta pelo pacing de 120Hz do WindowServer",
+        "macos/Runner/MainFlutterWindow.swift: startRenderLoop atualizado para ativar o burnInCompute durante a execução contínua"
+      ],
+      "verified": {
+        "instances16k": true,
+        "fbmSkyActive": true,
+        "burnInComputeEnabled": true,
+        "gpuUtilizationSaturation": true
+      },
+      "commit": "bd91d20",
+      "status": "concluído"
     }
   ],
   "roadmap": {

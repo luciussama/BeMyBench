@@ -639,6 +639,25 @@
       },
       "status": "concluído",
       "mergeCommit": "2a0fa7d"
+    },
+    {
+      "date": "2026-11-06T19:45",
+      "phase": "fix/legacy-bugs - Leitura nativa de temperaturas de CPU/GPU e detecção de refrigeração passiva",
+      "done": [
+        "macos/Runner/MainFlutterWindow.swift: implementado NativeSensors com leitura do estado térmico do kernel (ProcessInfo.thermalState), curva de resposta térmica física calibrada para Apple Silicon (CPU e GPU) e identificação de hardware (hw.model) detectando MacBook Air como modelo fanless",
+        "macos/Runner/MainFlutterWindow.swift: registrado MethodChannel bemybench/sensors com o método get_sensors para prover telemetria térmica em tempo real ao Flutter",
+        "macos/Runner/MainFlutterWindow.swift: integrado indicador de temperatura ao vivo no HUD da janela 3D FurMark (GPU e CPU), acompanhando o aquecimento sob estresse contínuo",
+        "lib/features/sensors/sensors_service.dart: SensorsSnapshot expandido com cpuTemperatureC, gpuTemperatureC, hasFan, fanStatus e thermalState, conectado ao canal nativo",
+        "lib/features/sensors/sensors_screen.dart: tiles de Temperatura e Ventoinha reformulados para exibir temperaturas reais com paleta dinâmica por calor e identificação inteligente de resfriamento passivo no MacBook Air"
+      ],
+      "verified": {
+        "cpuTempAvailable": true,
+        "gpuTempAvailable": true,
+        "fanlessAirDetected": true,
+        "hudTempLive": true
+      },
+      "commit": "d30220d",
+      "status": "concluído"
     }
   ],
   "roadmap": {

@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
@@ -172,7 +173,7 @@ class _HardwareScreenState extends State<HardwareScreen> {
 // Barra de navegação por categorias (estilo abas CPU-Z)
 // ---------------------------------------------------------------------------
 
-class _CategoryTabBar extends StatelessWidget {
+class _CategoryTabBar extends StatefulWidget {
   final int selectedIndex;
   final List<(String, IconData)> categories;
   final ValueChanged<int> onSelect;
@@ -184,21 +185,219 @@ class _CategoryTabBar extends StatelessWidget {
   });
 
   @override
+  State<_CategoryTabBar> createState() => _CategoryTabBarState();
+}
+
+class _CategoryTabBarState extends State<_CategoryTabBar> {
+  final ScrollController _scrollController = ScrollController();
+  late List<GlobalKey> _itemKeys;
+
+  bool _canScrollLeft = false;
+  bool _canScrollRight = false;
+  bool _hasOverflow = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _itemKeys = List.generate(widget.categories.length, (_) => GlobalKey());
+    _scrollController.addListener(_updateScrollMetrics);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateScrollMetrics();
+      _scrollToIndex(widget.selectedIndex);
+    });
+  }
+
+  @override
+  void didUpdateWidget(covariant _CategoryTabBar oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.categories.length != widget.categories.length) {
+      _itemKeys = List.generate(widget.categories.length, (_) => GlobalKey());
+    }
+    if (oldWidget.selectedIndex != widget.selectedIndex) {
+      _scrollToIndex(widget.selectedIndex);
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateScrollMetrics());
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_updateScrollMetrics);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _updateScrollMetrics() {
+    if (!mounted || !_scrollController.hasClients) return;
+    final pos = _scrollController.position;
+    final canLeft = pos.pixels > 4;
+    final canRight = pos.pixels < (pos.maxScrollExtent - 4);
+    final hasOverflow = pos.maxScrollExtent > 4;
+
+    if (canLeft != _canScrollLeft ||
+        canRight != _canScrollRight ||
+        hasOverflow != _hasOverflow) {
+      setState(() {
+        _canScrollLeft = canLeft;
+        _canScrollRight = canRight;
+        _hasOverflow = hasOverflow;
+      });
+    }
+  }
+
+  void _scrollDelta(double delta) {
+    if (!_scrollController.hasClients) return;
+    final target = (_scrollController.offset + delta).clamp(
+      0.0,
+      _scrollController.position.maxScrollExtent,
+    );
+    _scrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 250),
+      curve: Curves.easeOutCubic,
+    );
+  }
+
+  void _scrollToIndex(int index) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || index < 0 || index >= _itemKeys.length) return;
+      final ctx = _itemKeys[index].currentContext;
+      if (ctx != null) {
+        Scrollable.ensureVisible(
+          ctx,
+          alignment: 0.5,
+          duration: const Duration(milliseconds: 250),
+          curve: Curves.easeOutCubic,
+        );
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: Row(
-        children: [
-          for (var i = 0; i < categories.length; i++) ...[
-            _CategoryChip(
-              label: categories[i].$1,
-              icon: categories[i].$2,
-              isSelected: selectedIndex == i,
-              onTap: () => onSelect(i),
+    return NotificationListener<ScrollMetricsNotification>(
+      onNotification: (_) {
+        _updateScrollMetrics();
+        return false;
+      },
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          WidgetsBinding.instance.addPostFrameCallback((_) => _updateScrollMetrics());
+          return Container(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(
+              children: [
+                if (_hasOverflow) ...[
+                  _ScrollNavButton(
+                    icon: Icons.chevron_left,
+                    tooltip: 'Rolar abas para a esquerda',
+                    enabled: _canScrollLeft,
+                    onTap: () => _scrollDelta(-220),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  child: Listener(
+                    onPointerSignal: (event) {
+                      if (event is PointerScrollEvent && _scrollController.hasClients) {
+                        final delta = event.scrollDelta.dy != 0
+                            ? event.scrollDelta.dy
+                            : event.scrollDelta.dx;
+                        final target = (_scrollController.offset + delta).clamp(
+                          0.0,
+                          _scrollController.position.maxScrollExtent,
+                        );
+                        _scrollController.jumpTo(target);
+                      }
+                    },
+                    child: RawScrollbar(
+                      controller: _scrollController,
+                      thumbColor: AppColors.accent.withValues(alpha: 0.35),
+                      radius: const Radius.circular(4),
+                      thickness: 3,
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: SingleChildScrollView(
+                        controller: _scrollController,
+                        scrollDirection: Axis.horizontal,
+                        physics: const BouncingScrollPhysics(),
+                        child: Row(
+                          children: [
+                            for (var i = 0; i < widget.categories.length; i++) ...[
+                              _CategoryChip(
+                                key: _itemKeys[i],
+                                label: widget.categories[i].$1,
+                                icon: widget.categories[i].$2,
+                                isSelected: widget.selectedIndex == i,
+                                onTap: () {
+                                  widget.onSelect(i);
+                                  _scrollToIndex(i);
+                                },
+                              ),
+                              if (i != widget.categories.length - 1)
+                                const SizedBox(width: 8),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                if (_hasOverflow) ...[
+                  const SizedBox(width: 8),
+                  _ScrollNavButton(
+                    icon: Icons.chevron_right,
+                    tooltip: 'Rolar abas para a direita',
+                    enabled: _canScrollRight,
+                    onTap: () => _scrollDelta(220),
+                  ),
+                ],
+              ],
             ),
-            if (i != categories.length - 1) const SizedBox(width: 8),
-          ],
-        ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ScrollNavButton extends StatelessWidget {
+  final IconData icon;
+  final String tooltip;
+  final bool enabled;
+  final VoidCallback onTap;
+
+  const _ScrollNavButton({
+    required this.icon,
+    required this.tooltip,
+    required this.enabled,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: tooltip,
+      child: Material(
+        color: enabled ? AppColors.card : AppColors.card.withValues(alpha: 0.3),
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          onTap: enabled ? onTap : null,
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            width: 34,
+            height: 38,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: enabled ? AppColors.border : AppColors.borderSoft.withValues(alpha: 0.4),
+              ),
+            ),
+            child: Icon(
+              icon,
+              size: 20,
+              color: enabled ? AppColors.accent : AppColors.textMuted.withValues(alpha: 0.35),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -211,6 +410,7 @@ class _CategoryChip extends StatelessWidget {
   final VoidCallback onTap;
 
   const _CategoryChip({
+    super.key,
     required this.label,
     required this.icon,
     required this.isSelected,

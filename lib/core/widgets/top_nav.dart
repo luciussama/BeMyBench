@@ -1,9 +1,10 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
 
 /// Navegação superior (desktop). No mobile/touch o shell usa NavigationBar.
-class TopNav extends StatelessWidget {
+class TopNav extends StatefulWidget {
   final List<String> items;
   final int selected;
   final ValueChanged<int> onSelect;
@@ -15,6 +16,13 @@ class TopNav extends StatelessWidget {
     required this.onSelect,
   });
 
+  @override
+  State<TopNav> createState() => _TopNavState();
+}
+
+class _TopNavState extends State<TopNav> {
+  final ScrollController _scrollController = ScrollController();
+
   static const _icons = [
     Icons.memory,
     Icons.thermostat,
@@ -23,6 +31,12 @@ class TopNav extends StatelessWidget {
     Icons.whatshot,
     Icons.history,
   ];
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -47,21 +61,37 @@ class TopNav extends StatelessWidget {
           ),
           const SizedBox(width: 24),
           Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (var i = 0; i < items.length; i++)
-                    Padding(
-                      padding: const EdgeInsets.only(right: 6),
-                      child: _NavPill(
-                        icon: _icons[i % _icons.length],
-                        label: items[i],
-                        active: i == selected,
-                        onTap: () => onSelect(i),
+            child: Listener(
+              onPointerSignal: (event) {
+                if (event is PointerScrollEvent && _scrollController.hasClients) {
+                  final delta = event.scrollDelta.dy != 0
+                      ? event.scrollDelta.dy
+                      : event.scrollDelta.dx;
+                  final target = (_scrollController.offset + delta).clamp(
+                    0.0,
+                    _scrollController.position.maxScrollExtent,
+                  );
+                  _scrollController.jumpTo(target);
+                }
+              },
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                scrollDirection: Axis.horizontal,
+                physics: const BouncingScrollPhysics(),
+                child: Row(
+                  children: [
+                    for (var i = 0; i < widget.items.length; i++)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: _NavPill(
+                          icon: _icons[i % _icons.length],
+                          label: widget.items[i],
+                          active: i == widget.selected,
+                          onTap: () => widget.onSelect(i),
+                        ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),

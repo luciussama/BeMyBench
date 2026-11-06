@@ -187,3 +187,14 @@ BMyBench/
 
 Posso começar a Fase 0 + Fase 1 agora (esqueleto + System Info/Sensores/Bateria). Ao final da Fase 2, a gente reavalia se adianta a Fase 3 ou se fecha o MVP para testes no seu MacBook antes de gerar os pacotes Windows/Linux/Android.
 
+---
+
+## 10. GPU Window 3D (pós-v2)
+
+- Metal nativo no macOS + Vulkan nos demais OS
+- Janela separada flutuante sobre o app, fechável sem fechar o app
+- VSync desligado para medir FPS real da GPU
+- Combobox Benchmark/Stress alterna o modo de carga na janela
+- HUD dentro da janela 3D com 6 campos: GPU Name, %, Clock, V-RAM, Temperature, FPS
+- Sem ações destrutivas: MVP continua só lendo/medindo, sem apagar ou atualizar nada
+

@@ -19,8 +19,8 @@ final class GpuBenchmark {
   private let width = 1920
   private let height = 1080
   private let computeIterations: UInt32 = 48
-  private let backgroundIterations: UInt32 = 24
-  private let sceneInstances = 1024
+  private let backgroundIterations: UInt32 = 48
+  private let sceneInstances = 4096
   private let cubeTriangles = 12
   private let batchSize = 4
 
@@ -153,27 +153,27 @@ final class GpuBenchmark {
                                      constant float &time [[buffer(0)]],
                                      constant uint &iterations [[buffer(1)]]) {
       float2 uv = in.uv;
-      float2 p = uv * 8.0f + time * 0.05f;
-      float3 col = float3(0.0f);
-      float acc = 0.0f;
+      float2 p = uv * 6.0f + float2(time * 0.08f, -time * 0.12f);
+      float n1 = bmb_noise(p);
+      float n2 = bmb_noise(p * 2.2f + float2(time * 0.05f, 0.0f));
+      float smoke = (n1 * 0.6f + n2 * 0.4f);
 
-      for (uint i = 0; i < iterations; ++i) {
-        float fi = float(i);
-        p = float2(p.x * 1.17f + fi * 0.13f, p.y * 1.11f - fi * 0.09f);
-        float n = bmb_noise(p);
-        float m = bmb_noise(p * 2.3f + n);
-        acc += (n + m) / (1.0f + fi);
-        col += float3(n * 0.9f, m * 0.6f + 0.1f, (n + m) * 0.5f) / (1.0f + fi);
-      }
+      // Vignette suave circular: escurece as bordas, focando no donut
+      float2 centerOffset = uv - 0.5f;
+      float dist = length(centerOffset);
+      float vignette = clamp(1.0f - dist * 1.15f, 0.0f, 1.0f);
 
-      col += float3(
-        sin(uv.x * 60.0f + time),
-        cos(uv.y * 54.0f - time),
-        sin((uv.x + uv.y) * 40.0f)
-      ) * 0.15f;
+      // Fundo carvão escuro com brasas e névoa vulcânica
+      float3 bgDark = float3(0.04f, 0.045f, 0.06f);
+      float3 bgEmber = float3(0.18f, 0.06f, 0.015f);
+      float3 col = mix(bgDark, bgEmber, smoke * 0.75f) * vignette;
 
-      col = col / (1.0f + acc * 0.15f);
-      return float4(col * 0.32f, 1.0f);
+      // Partículas de brasa flutuantes sutis
+      float2 emberP = uv * 28.0f + float2(sin(uv.y * 10.0f + time), -time * 1.8f);
+      float ember = pow(bmb_noise(emberP), 9.0f) * 1.5f;
+      col += float3(1.2f, 0.5f, 0.05f) * ember * (1.0f - dist);
+
+      return float4(col, 1.0f);
     }
 
     // ---------------------------------------------------------------
@@ -186,6 +186,7 @@ final class GpuBenchmark {
 
     struct BmbSceneVOut {
       float4 position [[position]];
+      float3 worldPos;
       float3 normal;
       float3 color;
     };
@@ -197,17 +198,31 @@ final class GpuBenchmark {
                                          const device BmbSceneVertex *mesh [[buffer(2)]]) {
       BmbSceneVertex v = mesh[vid];
       float fi = float(iid);
-      float gx = fmod(fi, 32.0f) - 15.5f;
-      float gz = floor(fi / 32.0f) - 15.5f;
-      float angle = time * 0.6f + fi * 0.13f;
+      float ringSteps = 64.0f;
+      float tubeSteps = 64.0f; // 64 * 64 = 4096 instances
+      float angleRing = fmod(fi, ringSteps) * (6.2831853f / ringSteps) + time * 0.75f;
+      float angleTube = floor(fi / ringSteps) * (6.2831853f / tubeSteps) + time * 1.35f;
+
+      // FurMark Torus geometry (Donut)
+      float R = 7.5f;
+      float r = 2.6f + 0.35f * sin(angleRing * 4.0f + time * 2.2f);
 
       float3 base = float3(
-        gx * 0.55f,
-        sin(time * 1.3f + fi * 0.17f) * 1.1f,
-        gz * 0.55f
+        (R + r * cos(angleTube)) * cos(angleRing),
+        r * sin(angleTube),
+        (R + r * cos(angleTube)) * sin(angleRing)
       );
 
-      float3 local = v.position * 0.34f;
+      // Normal radial do tubo
+      float3 tubeNormal = float3(
+        cos(angleTube) * cos(angleRing),
+        sin(angleTube),
+        cos(angleTube) * sin(angleRing)
+      );
+
+      // Elonga as cerdas radialmente para formar pelagem densa FurMark
+      float3 local = v.position * float3(0.18f, 0.38f, 0.18f);
+      float angle = time * 1.2f + fi * 0.05f;
       float cy = cos(angle);
       float sy = sin(angle);
       float cx = cos(angle * 0.7f);
@@ -219,20 +234,17 @@ final class GpuBenchmark {
         local.x * sy + local.z * cy
       );
       p = float3(p.x, p.y * cx - p.z * sx, p.y * sx + p.z * cx);
-      float3 world = base + p;
+      float3 world = base + p + tubeNormal * (0.25f + 0.15f * sin(fi * 0.15f + time * 2.5f));
 
-      float3 n = v.normal;
-      n = float3(n.x * cy - n.z * sy, n.y, n.x * sy + n.z * cy);
-      n = float3(n.x, n.y * cx - n.z * sx, n.y * sx + n.z * cx);
+      float3 n = normalize(tubeNormal * 0.7f + v.normal * 0.3f);
 
       BmbSceneVOut o;
       o.position = viewProj * float4(world, 1.0f);
+      o.worldPos = world;
       o.normal = n;
-      o.color = float3(
-        0.45f + 0.45f * sin(fi * 0.37f),
-        0.45f + 0.45f * sin(fi * 0.53f + 1.0f),
-        0.45f + 0.45f * sin(fi * 0.71f + 2.0f)
-      ) * 1.3f;
+
+      float heat = 0.5f + 0.5f * sin(fi * 0.08f + time * 1.5f);
+      o.color = float3(heat, angleTube, angleRing);
       return o;
     }
 
@@ -242,8 +254,41 @@ final class GpuBenchmark {
       float3 l = normalize(lightDir);
       float diff = max(dot(n, l), 0.0f);
       float3 viewDir = float3(0.0f, 0.0f, 1.0f);
-      float spec = pow(max(dot(reflect(-l, n), viewDir), 0.0f), 24.0f);
-      float3 col = in.color * (0.25f + 0.75f * diff) + float3(0.18f) * spec;
+      float3 h = normalize(l + viewDir);
+      float spec = pow(max(dot(n, h), 0.0f), 28.0f);
+
+      // Carga pesada FurMark: 64 passos de turbulência fractal 3D e raymarching de pelagem (ALU-bound)
+      float3 p = in.worldPos * 1.25f;
+      float fur = 0.0f;
+      float occlusion = 1.0f;
+      for (int i = 0; i < 64; ++i) {
+        float fi = float(i);
+        float3 s = sin(p * (1.18f + fi * 0.065f));
+        float3 c = cos(p.zxy * (1.12f + fi * 0.055f));
+        p = fma(s, c, p * 0.48f);
+        fur += abs(dot(s, c)) / (1.0f + fi * 0.32f);
+        occlusion *= 0.972f;
+      }
+
+      // Paleta FurMark auténtica (Magma vivo, NUNCA branco):
+      // Núcleo / cavidades escuras de carmesim profundo
+      float3 darkCore = float3(0.24f, 0.025f, 0.005f);
+      // Fogo laranja intenso nas cerdas do meio
+      float3 flameOrange = float3(1.35f, 0.45f, 0.02f);
+      // Ouro brilhante nas pontas mais incandescentes
+      float3 goldSparks = float3(1.65f, 0.98f, 0.12f);
+
+      float furFactor = clamp((fur - 0.4f) * 0.38f, 0.0f, 1.0f);
+      float3 furCol = mix(darkCore, flameOrange, furFactor);
+      furCol = mix(furCol, goldSparks, pow(furFactor, 3.5f));
+
+      // Iluminação com self-shadowing volumétrico profundo
+      float3 fiery = furCol * (0.28f + 0.88f * diff * occlusion);
+
+      // Specular quente dourado (mantém o canal azul baixo para nunca esbranquiçar)
+      float3 goldenSpec = float3(1.3f, 0.82f, 0.18f) * spec * 1.5f;
+
+      float3 col = fiery + goldenSpec;
       return float4(col, 1.0f);
     }
 
@@ -268,9 +313,9 @@ final class GpuBenchmark {
                                        texture2d<float> scene [[texture(0)]],
                                        sampler samp [[sampler(0)]]) {
       float3 c = scene.sample(samp, in.uv).rgb;
-      float bright = max(max(c.r, c.g), c.b);
-      float contribution = max(bright - 0.75f, 0.0f);
-      return float4(c * contribution, 1.0f);
+      float lum = dot(c, float3(0.299f, 0.587f, 0.114f));
+      float contribution = max(lum - 0.95f, 0.0f);
+      return float4(c * contribution * 0.65f, 1.0f);
     }
 
     // Blur separável (5 taps com pesos de Gauss, dois offsets).
@@ -297,7 +342,7 @@ final class GpuBenchmark {
                                            sampler samp [[sampler(0)]]) {
       float3 hdr = scene.sample(samp, in.uv).rgb;
       float3 bloomCol = bloom.sample(samp, in.uv).rgb;
-      float3 color = hdr * 1.1f + bloomCol * 0.65f;
+      float3 color = hdr + bloomCol * 0.4f;
       color = bmb_aces(color);
       color = pow(color, float3(1.0f / 2.2f));
       return float4(color, 1.0f);
@@ -587,7 +632,10 @@ final class GpuBenchmark {
     return payload
   }
 
-  private func encodeRenderFrame(_ commandBuffer: MTLCommandBuffer, frameIndex: Int) -> Bool {
+  var metalDevice: MTLDevice? { device }
+  var commandQueue: MTLCommandQueue? { queue }
+
+  func encodeRenderFrame(_ commandBuffer: MTLCommandBuffer, frameIndex: Int, targetTexture: MTLTexture? = nil) -> Bool {
     guard let background = backgroundPipeline,
       let scene = scenePipeline,
       let bright = brightPipeline,
@@ -621,7 +669,7 @@ final class GpuBenchmark {
     let brightPass = makePostPass(bloomHalf)
     let blurHPass = makePostPass(bloomBlurA)
     let blurVPass = makePostPass(bloomBlurB)
-    let compositePass = makePostPass(final)
+    let compositePass = makePostPass(targetTexture ?? final)
 
     let viewProjection = makeViewProjection()
     var light = SIMD3<Float>(0.45, 0.85, 0.3)

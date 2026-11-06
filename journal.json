@@ -6,7 +6,7 @@
     "created": "2026-11-05",
     "owner": "sergio",
     "workingDir": "$HOME/repos/BeMyBench",
-    "status": "iter/v2: storage breakdown + historico de benchmarks (auto-save)",
+    "status": "iter/v3: janela 3D nativa (FurMark-like) Metal com VSync OFF, HUD ao vivo e ciclo de vida integrado",
     "goal": "Ferramenta de diagnóstico de hardware moderno, cross-platform (macOS, Windows, Linux, Android), com diagnóstico + benchmark + saúde de bateria + auxílio de desempenho.",
     "stack": {
       "ui": "Flutter 3.47.9 / Dart 3.13.7 (instalado em ../flutter)",
@@ -565,6 +565,79 @@
         "unitTests": "12/12"
       },
       "decision": "Historico salvo localmente sem plugins; escrita atomica e leitura tolerante a corrupcao; nada sai da maquina"
+    },
+    {
+      "date": "2026-11-06",
+      "phase": "Iteração 3 - Janela 3D/GPU (Metal/Vulkan) + HUD na janela",
+      "done": [
+        "macos/Runner/GpuBenchmark.swift: exposto metalDevice e commandQueue; encodeRenderFrame atualizado para aceitar targetTexture opcional no composite pass (render direto em drawable MTKView)",
+        "macos/Runner/MainFlutterWindow.swift: implementado GpuLiveWindowController com NSWindow flutuante independente, MTKView com CAMetalLayer.displaySyncEnabled = false (VSync OFF), render da cena 3D procedural/cubos em tempo real",
+        "HUD nativo sobre a cena 3D: painel translúcido estilizado com nome da GPU, FPS ao vivo, tempo de quadro (ms), VRAM alocada, indicador de VSync OFF e controle de modo (Benchmark 15s / Estresse contínuo)",
+        "bemybench/gpu MethodChannel: adicionados métodos open_3d_window, close_3d_window e is_3d_window_open",
+        "lib/features/benchmark/gpu_benchmark.dart: adicionados open3dWindow, close3dWindow e is3dWindowOpen no GpuBenchmarkService",
+        "lib/features/stress/stress_screen.dart: removido botão duplicado; adicionada opção 'Janela 3D nativa ao vivo'; abertura automática ao iniciar e fechamento automático ao encerrar a duração escolhida (30s/60s/contínuo)",
+        "macos/Runner/GpuBenchmark.swift: cena atualizada para FurMark Donut volumétrico com 4096 instâncias em toroide e fragment shader com 48 iterações de raymarching fractal (alta saturação de ALU)",
+        "macos/Runner/MainFlutterWindow.swift: corrigido preferredFramesPerSecond para 120 e fixado drawableSize em 1920x1080 com autoResizeDrawable=false para garantir render contínuo no MTKView",
+        "Limpeza de artefatos temporários: removidos os arquivos mock de UI estática com timers simulados"
+      ],
+      "decision": "Janela 3D nativa integrada ao ciclo de vida do teste com fechamento automático e carga FurMark pesada para estresse térmico real de GPU",
+      "commit": "21010a3",
+      "status": "concluído"
+    },
+    {
+      "date": "2026-11-06T18:30",
+      "phase": "Iteração 3 - Desvinculação de VSync (Uncapped FPS) + FurMark Donut Vulcânico",
+      "done": [
+        "macos/Runner/MainFlutterWindow.swift: desativado timer interno de 60Hz do MTKView (isPaused = true) que travava a taxa de quadros no refresh rate do monitor do MacBook (60 FPS / 16.67 ms)",
+        "macos/Runner/MainFlutterWindow.swift: implementado render loop desvinculado (VSync OFF livre) em thread dedicada DispatchQueue.global(qos: .userInteractive) consumindo CAMetalLayer.nextDrawable() imediatamente após a conclusão da GPU",
+        "Cálculo e HUD de FPS em tempo real: o HUD agora mede e exibe o throughput real e contínuo de quadros por segundo sem throttling de V-Sync",
+        "macos/Runner/GpuBenchmark.swift: correção completa da estética FurMark, eliminando o estouro de branco causado por excesso de canal azul, specular descalibrado e tonemapping saturado",
+        "macos/Runner/GpuBenchmark.swift: fundo atualizado para atmosfera vulcânica escura com vinheta circular, brasas incandescentes e névoa de calor com alto contraste",
+        "macos/Runner/GpuBenchmark.swift: shader de cena atualizado para 64 passos de raymarching/turbulência fractal 3D de alta intensidade (ALU-bound) com auto-sombreamento e paleta de magma vivo (carmesim profundo nas sombras, laranja ardente no corpo e dourado nas pontas)"
+      ],
+      "verified": {
+        "vsyncOff": true,
+        "uncappedLoop": true,
+        "furMarkLook": "vulcânico vivo (carmesim, laranja, dourado)",
+        "aluLoad": "64 passos de turbulência 3D fractal"
+      },
+      "commit": "f9ee6ef",
+      "status": "concluído"
+    },
+    {
+      "date": "2026-11-06T19:00",
+      "phase": "Iteração 3 - Ciclo de vida da Janela 3D na tela de Benchmark",
+      "done": [
+        "lib/features/benchmark/benchmark_screen.dart: corrigido o chip \"Janela 3D (Ao Vivo)\" para atuar como opção selecionável (toggle) em vez de acionar a abertura imediata ao ser clicado",
+        "lib/features/benchmark/benchmark_screen.dart: sincronizado o ciclo de vida da janela 3D em _runAll() para abrir APENAS durante a etapa de testes de GPU (compute/render) e fechar imediatamente assim que os testes de GPU forem concluídos",
+        "lib/features/benchmark/benchmark_screen.dart: adicionado fechamento preventivo em dispose() e no bloco finally para evitar janelas órfãs em caso de erro ou cancelamento"
+      ],
+      "verified": {
+        "chipTogglesStateOnly": true,
+        "opensOnlyOnGpuTest": true,
+        "closesImmediatelyAfterGpu": true
+      },
+      "commit": "368c693",
+      "status": "concluído"
+    },
+    {
+      "date": "2026-11-06T19:30",
+      "phase": "Iteração 3 - Conclusão e Merge na main",
+      "done": [
+        "Iteração 3 concluída com sucesso: Janela 3D nativa flutuante em Metal com estética FurMark Donut vulcânica (magma, carmesim, dourado)",
+        "Carga pesada de 64 passos de raymarching fractal 3D (ALU-bound) com auto-sombreamento",
+        "Render loop desvinculado (VSync OFF livre) em thread dedicada consumindo CAMetalLayer.nextDrawable() a taxas reais sem travar em 60Hz",
+        "HUD nativo sobre a cena com FPS dinâmico real, tempo de quadro (ms), V-RAM alocada, status e modo",
+        "Ciclo de vida automático integrado na tela de Estresse (abre com Iniciar Estresse e fecha no fim da duração) e na tela de Benchmark (chip atua como toggle, abrindo apenas durante os testes de GPU e fechando em seguida)",
+        "Merge do branch iter/v3 para main realizado com histórico limpo e rastreado"
+      ],
+      "verified": {
+        "cleanBuild": true,
+        "unthrottledLoop": true,
+        "lifecycleSynced": true,
+        "mergedToMain": true
+      },
+      "status": "concluído"
     }
   ],
   "roadmap": {
@@ -585,7 +658,8 @@
     "Implementar BatteryService para Windows/Linux/Android",
     "Implementar System Info de GPU (system_profiler no macOS)",
     "Storage breakdown (df -h por volume no macOS)",
-    "Remover aviso de stale file (flutter clean) e ajustar const lints"
+    "Remover aviso de stale file (flutter clean) e ajustar const lints",
+    "Vulkan demais OS"
   ],
   "openQuestions": [
     "Nome de display final (BMyBench vs Be My Bench) para ícone/splash",

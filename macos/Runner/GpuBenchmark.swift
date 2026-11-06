@@ -186,6 +186,7 @@ final class GpuBenchmark {
 
     struct BmbSceneVOut {
       float4 position [[position]];
+      float3 worldPos;
       float3 normal;
       float3 color;
     };
@@ -233,6 +234,7 @@ final class GpuBenchmark {
 
       BmbSceneVOut o;
       o.position = viewProj * float4(world, 1.0f);
+      o.worldPos = world;
       o.normal = n;
 
       // Cores quentes de magma / FurMark (laranja, carmesim, dourado)
@@ -254,7 +256,7 @@ final class GpuBenchmark {
       float spec = pow(max(dot(reflect(-l, n), viewDir), 0.0f), 32.0f);
 
       // Carga pesada FurMark: 48 passos de ruído fractal 3D e pelagem por fragmento (ALU-bound)
-      float3 p = in.position * 3.6f;
+      float3 p = in.worldPos * 0.85f;
       float fur = 0.0f;
       float occlusion = 1.0f;
       for (int i = 0; i < 48; ++i) {

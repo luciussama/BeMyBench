@@ -1,23 +1,35 @@
 import 'dart:io';
+import 'package:flutter/services.dart';
 
 /// Leitura de sensores sem dependências externas.
 ///
-/// macOS: `top` (uso de CPU), `vm_stat` + `hw.memsize` (RAM).
-/// Temperatura/ventoinha no Apple Silicon são limitadas pelo sistema;
-/// ficam como "N/A" com aviso (powermetrics exige sudo).
+/// macOS: `top` (uso de CPU), `vm_stat` + `hw.memsize` (RAM),
+/// sensores térmicos e de ventoinha via canal nativo `bemybench/sensors`.
 class SensorsSnapshot {
   final double cpuUsagePercent;
+  final double? gpuUsagePercent;
   final int ramUsedBytes;
   final int ramTotalBytes;
   final double? temperatureC;
+  final double? cpuTemperatureC;
+  final double? gpuTemperatureC;
   final int? fanRpm;
+  final bool hasFan;
+  final String fanStatus;
+  final String thermalState;
 
   const SensorsSnapshot({
     required this.cpuUsagePercent,
+    this.gpuUsagePercent,
     required this.ramUsedBytes,
     required this.ramTotalBytes,
     this.temperatureC,
+    this.cpuTemperatureC,
+    this.gpuTemperatureC,
     this.fanRpm,
+    this.hasFan = true,
+    this.fanStatus = 'Normal',
+    this.thermalState = 'Nominal',
   });
 
   double get ramUsagePercent =>
@@ -31,6 +43,7 @@ class SensorsSnapshot {
 }
 
 class SensorsService {
+  static const _channel = MethodChannel('bemybench/sensors');
   int _pageSize = 4096;
 
   Future<SensorsSnapshot> collect() async {
@@ -111,10 +124,44 @@ class SensorsService {
       used = (active + wired + compressed) * _pageSize;
     } catch (_) {}
 
+    // Temperaturas, Ventoinha e Carga de GPU via canal nativo
+    double? cpuTemp;
+    double? gpuTemp;
+    double? gpuUsage;
+    double? tempC;
+    bool hasFan = true;
+    String fanStatus = 'Normal';
+    String thermalState = 'Nominal';
+    int? fanRpm;
+
+    try {
+      final res = await _channel.invokeMapMethod<String, dynamic>('get_sensors', {
+        'cpu_usage': cpu,
+      });
+      if (res != null) {
+        cpuTemp = (res['cpu_temp'] as num?)?.toDouble();
+        gpuTemp = (res['gpu_temp'] as num?)?.toDouble();
+        gpuUsage = (res['gpu_usage'] as num?)?.toDouble();
+        tempC = cpuTemp ?? gpuTemp;
+        hasFan = res['has_fan'] as bool? ?? true;
+        fanStatus = res['fan_status'] as String? ?? 'Normal';
+        thermalState = res['thermal_state'] as String? ?? 'Nominal';
+        fanRpm = res['fan_rpm'] as int?;
+      }
+    } catch (_) {}
+
     return SensorsSnapshot(
       cpuUsagePercent: cpu.clamp(0, 100).toDouble(),
+      gpuUsagePercent: gpuUsage,
       ramUsedBytes: used,
       ramTotalBytes: total,
+      temperatureC: tempC,
+      cpuTemperatureC: cpuTemp,
+      gpuTemperatureC: gpuTemp,
+      fanRpm: fanRpm,
+      hasFan: hasFan,
+      fanStatus: fanStatus,
+      thermalState: thermalState,
     );
   }
 
@@ -133,7 +180,6 @@ class SensorsService {
 
     double cpu = 0;
     try {
-      // Duas leituras de /proc/stat com 500ms de intervalo
       Future<List<int>> readStat() async {
         final s = await _run('cat', ['/proc/stat']);
         final first = s.split('\n').first.split(RegExp(r'\s+'));

@@ -18,9 +18,9 @@ final class GpuBenchmark {
 
   private let width = 1920
   private let height = 1080
-  private let computeIterations: UInt32 = 48
-  private let backgroundIterations: UInt32 = 48
-  private let sceneInstances = 4096
+  private let computeIterations: UInt32 = 64
+  private let backgroundIterations: UInt32 = 64
+  private let sceneInstances = 16384
   private let cubeTriangles = 12
   private let batchSize = 4
 
@@ -149,29 +149,41 @@ final class GpuBenchmark {
       return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
     }
 
+    static float bmb_fbm(float2 p) {
+      float v = 0.0f;
+      float a = 0.5f;
+      float2 shift = float2(100.0f);
+      float2x2 rot = float2x2(cos(0.5f), sin(0.5f), -sin(0.5f), cos(0.5f));
+      for (int i = 0; i < 8; ++i) {
+        v += a * bmb_noise(p);
+        p = rot * p * 2.05f + shift;
+        a *= 0.5f;
+      }
+      return v;
+    }
+
     fragment float4 bmb_sky_fragment(BmbSkyVOut in [[stage_in]],
                                      constant float &time [[buffer(0)]],
                                      constant uint &iterations [[buffer(1)]]) {
       float2 uv = in.uv;
-      float2 p = uv * 6.0f + float2(time * 0.08f, -time * 0.12f);
-      float n1 = bmb_noise(p);
-      float n2 = bmb_noise(p * 2.2f + float2(time * 0.05f, 0.0f));
-      float smoke = (n1 * 0.6f + n2 * 0.4f);
+      float2 p = uv * 5.0f + float2(time * 0.08f, -time * 0.12f);
+      float smoke = bmb_fbm(p);
+      float smokeDetail = bmb_fbm(p * 2.2f + float2(time * 0.05f, 0.0f));
 
       // Vignette suave circular: escurece as bordas, focando no donut
       float2 centerOffset = uv - 0.5f;
       float dist = length(centerOffset);
       float vignette = clamp(1.0f - dist * 1.15f, 0.0f, 1.0f);
 
-      // Fundo carvão escuro com brasas e névoa vulcânica
+      // Fundo carvão escuro com brasas e névoa vulcânica densa (fBm pesado em todos os pixels)
       float3 bgDark = float3(0.04f, 0.045f, 0.06f);
-      float3 bgEmber = float3(0.18f, 0.06f, 0.015f);
-      float3 col = mix(bgDark, bgEmber, smoke * 0.75f) * vignette;
+      float3 bgEmber = float3(0.22f, 0.08f, 0.02f);
+      float3 col = mix(bgDark, bgEmber, smoke * 0.85f + smokeDetail * 0.35f) * vignette;
 
-      // Partículas de brasa flutuantes sutis
-      float2 emberP = uv * 28.0f + float2(sin(uv.y * 10.0f + time), -time * 1.8f);
-      float ember = pow(bmb_noise(emberP), 9.0f) * 1.5f;
-      col += float3(1.2f, 0.5f, 0.05f) * ember * (1.0f - dist);
+      // Partículas de brasa incandescentes
+      float2 emberP = uv * 32.0f + float2(sin(uv.y * 12.0f + time), -time * 2.2f);
+      float ember = pow(bmb_noise(emberP), 8.0f) * 1.8f;
+      col += float3(1.35f, 0.55f, 0.08f) * ember * (1.0f - dist);
 
       return float4(col, 1.0f);
     }
@@ -198,14 +210,14 @@ final class GpuBenchmark {
                                          const device BmbSceneVertex *mesh [[buffer(2)]]) {
       BmbSceneVertex v = mesh[vid];
       float fi = float(iid);
-      float ringSteps = 64.0f;
-      float tubeSteps = 64.0f; // 64 * 64 = 4096 instances
+      float ringSteps = 128.0f;
+      float tubeSteps = 128.0f; // 128 * 128 = 16384 instances
       float angleRing = fmod(fi, ringSteps) * (6.2831853f / ringSteps) + time * 0.75f;
       float angleTube = floor(fi / ringSteps) * (6.2831853f / tubeSteps) + time * 1.35f;
 
-      // FurMark Torus geometry (Donut)
-      float R = 7.5f;
-      float r = 2.6f + 0.35f * sin(angleRing * 4.0f + time * 2.2f);
+      // FurMark Torus geometry (Donut denso, espesso e contínuo)
+      float R = 7.2f;
+      float r = 3.2f + 0.45f * sin(angleRing * 4.0f + time * 2.2f);
 
       float3 base = float3(
         (R + r * cos(angleTube)) * cos(angleRing),
@@ -220,8 +232,8 @@ final class GpuBenchmark {
         cos(angleTube) * sin(angleRing)
       );
 
-      // Elonga as cerdas radialmente para formar pelagem densa FurMark
-      float3 local = v.position * float3(0.18f, 0.38f, 0.18f);
+      // Cerdas espessas sobrepostas sem lacunas para formar pelagem contínua FurMark
+      float3 local = v.position * float3(0.48f, 0.88f, 0.48f);
       float angle = time * 1.2f + fi * 0.05f;
       float cy = cos(angle);
       float sy = sin(angle);
@@ -234,7 +246,7 @@ final class GpuBenchmark {
         local.x * sy + local.z * cy
       );
       p = float3(p.x, p.y * cx - p.z * sx, p.y * sx + p.z * cx);
-      float3 world = base + p + tubeNormal * (0.25f + 0.15f * sin(fi * 0.15f + time * 2.5f));
+      float3 world = base + p + tubeNormal * (0.35f + 0.25f * sin(fi * 0.15f + time * 2.5f));
 
       float3 n = normalize(tubeNormal * 0.7f + v.normal * 0.3f);
 
@@ -257,20 +269,20 @@ final class GpuBenchmark {
       float3 h = normalize(l + viewDir);
       float spec = pow(max(dot(n, h), 0.0f), 28.0f);
 
-      // Carga pesada FurMark: 64 passos de turbulência fractal 3D e raymarching de pelagem (ALU-bound)
-      float3 p = in.worldPos * 1.25f;
+      // Carga ultra-pesada FurMark (torture test): 160 passos de turbulência fractal 3D e raymarching de pelagem
+      float3 p = in.worldPos * 1.35f;
       float fur = 0.0f;
       float occlusion = 1.0f;
-      for (int i = 0; i < 64; ++i) {
+      for (int i = 0; i < 160; ++i) {
         float fi = float(i);
         float3 s = sin(p * (1.18f + fi * 0.065f));
         float3 c = cos(p.zxy * (1.12f + fi * 0.055f));
         p = fma(s, c, p * 0.48f);
-        fur += abs(dot(s, c)) / (1.0f + fi * 0.32f);
-        occlusion *= 0.972f;
+        fur += abs(dot(s, c)) / (1.0f + fi * 0.28f);
+        occlusion *= 0.985f;
       }
 
-      // Paleta FurMark auténtica (Magma vivo, NUNCA branco):
+      // Paleta FurMark autêntica (Magma vivo incandescente):
       // Núcleo / cavidades escuras de carmesim profundo
       float3 darkCore = float3(0.24f, 0.025f, 0.005f);
       // Fogo laranja intenso nas cerdas do meio
@@ -285,7 +297,7 @@ final class GpuBenchmark {
       // Iluminação com self-shadowing volumétrico profundo
       float3 fiery = furCol * (0.28f + 0.88f * diff * occlusion);
 
-      // Specular quente dourado (mantém o canal azul baixo para nunca esbranquiçar)
+      // Specular quente dourado
       float3 goldenSpec = float3(1.3f, 0.82f, 0.18f) * spec * 1.5f;
 
       float3 col = fiery + goldenSpec;
@@ -613,7 +625,7 @@ final class GpuBenchmark {
 
     let measurement = try measure(durationMs: durationMs, perFrame: true) {
       commandBuffer, frameIndex in
-      self.encodeRenderFrame(commandBuffer, frameIndex: frameIndex)
+      self.encodeRenderFrame(commandBuffer, frameIndex: frameIndex, burnInCompute: true)
     }
 
     var payload = resultPayload(
@@ -635,7 +647,12 @@ final class GpuBenchmark {
   var metalDevice: MTLDevice? { device }
   var commandQueue: MTLCommandQueue? { queue }
 
-  func encodeRenderFrame(_ commandBuffer: MTLCommandBuffer, frameIndex: Int, targetTexture: MTLTexture? = nil) -> Bool {
+  func encodeRenderFrame(
+    _ commandBuffer: MTLCommandBuffer,
+    frameIndex: Int,
+    targetTexture: MTLTexture? = nil,
+    burnInCompute: Bool = false
+  ) -> Bool {
     guard let background = backgroundPipeline,
       let scene = scenePipeline,
       let bright = brightPipeline,
@@ -652,6 +669,23 @@ final class GpuBenchmark {
       let sampler = sampler
     else {
       return false
+    }
+
+    // Furnace Compute Pass: satura continuamente os shaders/ALU da GPU eliminando ociosidade de VSync
+    if burnInCompute,
+       let computePipeline = computePipeline,
+       let computeOutput = computeOutput {
+      if let computeEncoder = commandBuffer.makeComputeCommandEncoder() {
+        computeEncoder.setComputePipelineState(computePipeline)
+        computeEncoder.setBuffer(computeOutput, offset: 0, index: 0)
+        var iters: UInt32 = 480
+        computeEncoder.setBytes(&iters, length: MemoryLayout<UInt32>.size, index: 1)
+        let pixels = width * height
+        let grid = MTLSize(width: pixels, height: 1, depth: 1)
+        let threadgroup = MTLSize(width: min(computePipeline.maxTotalThreadsPerThreadgroup, 256), height: 1, depth: 1)
+        computeEncoder.dispatchThreads(grid, threadsPerThreadgroup: threadgroup)
+        computeEncoder.endEncoding()
+      }
     }
 
     // Passe HDR (MSAA -> resolve)

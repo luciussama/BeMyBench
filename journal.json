@@ -6,7 +6,7 @@
     "created": "2026-11-05",
     "owner": "sergio",
     "workingDir": "$HOME/repos/BeMyBench",
-    "status": "iter/v4: implementadas limpeza inteligente de disco (SSD) e boost de RAM cross-platform com whitelist de segurança",
+    "status": "main: Iteração 4 concluída - hardware granular multi-plataforma, limpeza de disco, boost de RAM e UI sem marcas registradas",
     "goal": "Ferramenta de diagnóstico de hardware moderno, cross-platform (macOS, Windows, Linux, Android), com diagnóstico + benchmark + saúde de bateria + auxílio de desempenho.",
     "stack": {
       "ui": "Flutter 3.47.9 / Dart 3.13.7 (instalado em ../flutter)",
@@ -825,7 +825,8 @@
         "dartAnalyzeClean": true
       },
       "commit": "3eae7da",
-      "status": "concluído na branch iter/v4"
+      "status": "concluído",
+      "mergeCommit": "948a2fd"
     }
   ],
   "roadmap": {

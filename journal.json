@@ -805,6 +805,27 @@
       },
       "commit": "80713a3",
       "status": "concluído na branch iter/v4"
+    },
+    {
+      "date": "2026-11-07T00:45",
+      "phase": "Iteração 4 - Remoção de Marcas Proprietárias (CPU-Z, GPU-Z, HWiNFO)",
+      "done": [
+        "Pesquisa de propriedade intelectual: verificado que CPU-Z é marca/software proprietário da CPUID (CPUID EURL / Franck Delattre) e GPU-Z é marca/software da TechPowerUp, assim como HWiNFO pertence à REALiX",
+        "Substituição completa dos nomes proprietários na interface do usuário (UI) e código-fonte:",
+        "No painel do processador: substituído 'CPU-Z HARDWARE INSPECTOR' por 'DETALHES DO PROCESSADOR'",
+        "No painel gráfico: substituído 'GPU-Z GRAPHICS INSPECTOR' por 'DETALHE DA GPU'",
+        "No painel de conexões e barramentos: substituído 'HWiNFO BUS MONITOR' por 'DETALHES DE CONEXÕES & BARRAMENTOS'",
+        "Removidas todas as menções a CPU-Z, GPU-Z e HWiNFO de comentários, documentações de classes e modelos em lib/features/hardware/hardware_screen.dart, hardware_models.dart e hardware_service.dart",
+        "dart analyze verificado com 0 erros e 0 avisos"
+      ],
+      "verified": {
+        "trademarkAuditDone": true,
+        "genericLabelsApplied": true,
+        "codebaseClean": true,
+        "dartAnalyzeClean": true
+      },
+      "commit": "3eae7da",
+      "status": "concluído na branch iter/v4"
     }
   ],
   "roadmap": {

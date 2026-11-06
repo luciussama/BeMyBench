@@ -6,7 +6,7 @@
     "created": "2026-11-05",
     "owner": "sergio",
     "workingDir": "$HOME/repos/BeMyBench",
-    "status": "iter/v4: inspeção granular de hardware estilo CPU-Z, GPU-Z e HWiNFO com adaptação cross-platform",
+    "status": "iter/v4: implementadas limpeza inteligente de disco (SSD) e boost de RAM cross-platform com whitelist de segurança",
     "goal": "Ferramenta de diagnóstico de hardware moderno, cross-platform (macOS, Windows, Linux, Android), com diagnóstico + benchmark + saúde de bateria + auxílio de desempenho.",
     "stack": {
       "ui": "Flutter 3.47.9 / Dart 3.13.7 (instalado em ../flutter)",
@@ -759,6 +759,29 @@
       },
       "commit": "5477c75",
       "status": "em andamento na branch iter/v4"
+    },
+    {
+      "date": "2026-11-07T00:15",
+      "phase": "Iteração 4 - Limpeza de Disco (SSD) e Boost de RAM Cross-Platform",
+      "done": [
+        "Criado lib/features/cleaner/cleaner_models.dart com modelos de dados: CleanCategoryType (userCache, developerCache, systemTemp, crashLogs, userTrash), CleanItem, CategoryScanResult, CleanScanReport, CleanExecutionReport e RamBoostReport",
+        "Criado lib/features/cleaner/cleaner_service.dart com escaneador inteligente e whitelist estrita de caminhos seguros por sistema operacional (macOS: ~/Library/Caches, Xcode DerivedData/Archives, .gradle/.pub-cache, ~/Library/Logs, ~/.Trash, $TMPDIR; Windows: %TEMP%, AppData/Local/Temp, CrashDumps, WER; Linux: ~/.cache, /tmp, /var/tmp, Trash; Android: cache da aplicação)",
+        "Segurança ativa no Cleaner: proteção contra exclusão fora da whitelist, verificação de idade ignorando arquivos modificados há menos de 1 hora (evitando apagar downloads/instalações em andamento) e tratamento gracioso de arquivos travados pelo sistema operacional (in-use)",
+        "Boost de RAM inteligente cross-platform: medição precisa antes e depois (GB e % livre). No macOS tenta /usr/sbin/purge e executa fallback transparente de transient memory pressure que força o subsistema de memória virtual (VM) do kernel a purgar páginas inativas e buffers de disco sem exigir privilégios de root; lógica preparada para Linux (/proc/sys/vm/drop_caches), Windows ([System.GC]::Collect) e Android",
+        "Criado lib/features/cleaner/clean_disk_dialog.dart: modal interativo em 4 fases (varredura visual com feedback dinâmico, tela de revisão detalhada com checkboxes por categoria e 'Selecionar Todos', progresso de exclusão e relatório final com bytes liberados e contagem de arquivos)",
+        "Criado lib/features/cleaner/ram_boost_dialog.dart: modal com telemetria antes vs depois de RAM liberada, tempo de execução e taxa de ocupação",
+        "Integrados os botões 'Limpar Disco' e 'Boost RAM' na tela de Hardware com atualização automática dos tiles do dashboard",
+        "Criado test/cleaner_test.dart cobrindo formatação de bytes, escaneamento e boost de RAM",
+        "dart analyze verificado com 0 erros e 0 avisos"
+      ],
+      "verified": {
+        "diskScanSafeWhitelist": true,
+        "ramBoostNonRootFallback": true,
+        "dialogsIntegrated": true,
+        "dartAnalyzeClean": true
+      },
+      "commit": "6932b28",
+      "status": "concluído na branch iter/v4"
     }
   ],
   "roadmap": {

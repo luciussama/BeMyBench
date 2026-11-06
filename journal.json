@@ -575,11 +575,13 @@
         "HUD nativo sobre a cena 3D: painel translúcido estilizado com nome da GPU, FPS ao vivo, tempo de quadro (ms), VRAM alocada, indicador de VSync OFF e controle de modo (Benchmark 15s / Estresse contínuo)",
         "bemybench/gpu MethodChannel: adicionados métodos open_3d_window, close_3d_window e is_3d_window_open",
         "lib/features/benchmark/gpu_benchmark.dart: adicionados open3dWindow, close3dWindow e is3dWindowOpen no GpuBenchmarkService",
-        "lib/features/stress/stress_screen.dart e benchmark_screen.dart: integrados botões para disparar a janela 3D em modo Estresse e Benchmark",
+        "lib/features/stress/stress_screen.dart: removido botão duplicado; adicionada opção 'Janela 3D nativa ao vivo'; abertura automática ao iniciar e fechamento automático ao encerrar a duração escolhida (30s/60s/contínuo)",
+        "macos/Runner/GpuBenchmark.swift: cena atualizada para FurMark Donut volumétrico com 4096 instâncias em toroide e fragment shader com 48 iterações de raymarching fractal (alta saturação de ALU)",
+        "macos/Runner/MainFlutterWindow.swift: framerate destravado no MTKView (preferredFramesPerSecond = 0, allowsNextDrawableTimeout = false) com VSync OFF real",
         "Limpeza de artefatos temporários: removidos os arquivos mock de UI estática com timers simulados"
       ],
-      "decision": "Janela 3D implementada nativamente em Metal (AppKit + MetalKit) sem travar no VSync; fechável de forma independente sem derrubar o app Flutter",
-      "commit": "98b6555",
+      "decision": "Janela 3D nativa integrada ao ciclo de vida do teste com fechamento automático e carga FurMark pesada para estresse térmico real de GPU",
+      "commit": "3b3aded",
       "status": "concluído"
     }
   ],

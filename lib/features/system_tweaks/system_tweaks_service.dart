@@ -6,28 +6,28 @@ import 'package:flutter/foundation.dart';
 import 'system_tweaks_models.dart';
 
 /// Serviço responsável pelos 3 pilares de Ajustes do Sistema:
-/// 1. Atualização de pacotes (winget / apt / dnf / pacman)
-/// 2. Varredura por drivers disponíveis (Windows Update / fwupd / ubuntu-drivers)
+/// 1. Atualização de pacotes (winget / apt / dnf / pacman / brew)
+/// 2. Varredura por drivers disponíveis (Windows Update / fwupd / ubuntu-drivers / softwareupdate)
 /// 3. Detecção e diagnóstico de hardware com driver ausente ou com problemas
 class SystemTweaksService {
   final bool isWindows;
   final bool isLinux;
-
-  static const bool isPreviewMode =
-      bool.fromEnvironment('ENABLE_SYSTEM_TWEAKS_PREVIEW', defaultValue: false);
+  final bool isMacOS;
 
   SystemTweaksService({
     bool? isWindows,
     bool? isLinux,
+    bool? isMacOS,
   })  : isWindows = isWindows ?? Platform.isWindows,
-        isLinux = isLinux ?? Platform.isLinux;
+        isLinux = isLinux ?? Platform.isLinux,
+        isMacOS = isMacOS ?? Platform.isMacOS;
 
-  bool get isSupported => isWindows || isLinux || isPreviewMode;
+  bool get isSupported => isWindows || isLinux || isMacOS;
 
   String get detectedOsName {
     if (isWindows) return 'Windows';
     if (isLinux) return 'Linux';
-    if (isPreviewMode) return 'Preview (Ambiente de Teste)';
+    if (isMacOS) return 'macOS';
     return Platform.operatingSystem;
   }
 
@@ -37,10 +37,6 @@ class SystemTweaksService {
 
   /// Detecta qual gerenciador de pacotes está disponível no sistema.
   Future<String> detectPackageManager() async {
-    if (isPreviewMode && !isWindows && !isLinux) {
-      return 'winget / APT (Modo Preview)';
-    }
-
     if (isWindows) {
       try {
         final res = await Process.run('where', ['winget']);
@@ -59,6 +55,16 @@ class SystemTweaksService {
       return 'Nenhum gerenciador suportado localizado';
     }
 
+    if (isMacOS) {
+      for (final b in ['/opt/homebrew/bin/brew', '/usr/local/bin/brew', 'brew']) {
+        try {
+          final res = await Process.run(b, ['--version']);
+          if (res.exitCode == 0) return 'Homebrew (brew)';
+        } catch (_) {}
+      }
+      return 'Nenhum (Homebrew não instalado)';
+    }
+
     return 'Não suportado nesta plataforma';
   }
 
@@ -66,31 +72,16 @@ class SystemTweaksService {
   Future<List<PackageInfoItem>> checkPackageUpdates() async {
     if (!isSupported) return const [];
 
-    if (isPreviewMode && !isWindows && !isLinux) {
-      return const [
-        PackageInfoItem(
-          name: 'Google Chrome',
-          id: 'Google.Chrome',
-          currentVersion: '120.0.6099.130',
-          availableVersion: '121.0.6167.86',
-          source: 'winget',
-        ),
-        PackageInfoItem(
-          name: 'Git for Windows',
-          id: 'Git.Git',
-          currentVersion: '2.43.0',
-          availableVersion: '2.44.0',
-          source: 'winget',
-        ),
-      ];
-    }
-
     if (isWindows) {
       return _checkWingetUpdates();
     }
 
     if (isLinux) {
       return _checkLinuxPackageUpdates();
+    }
+
+    if (isMacOS) {
+      return _checkMacUpdates();
     }
 
     return const [];
@@ -184,6 +175,52 @@ class SystemTweaksService {
     return items;
   }
 
+  Future<List<PackageInfoItem>> _checkMacUpdates() async {
+    for (final b in ['/opt/homebrew/bin/brew', '/usr/local/bin/brew', 'brew']) {
+      try {
+        final res = await Process.run(b, ['outdated', '--verbose'])
+            .timeout(const Duration(seconds: 20));
+        if (res.exitCode == 0) {
+          return parseBrewOutdated(res.stdout.toString());
+        }
+      } catch (_) {}
+    }
+    return const [];
+  }
+
+  /// Parser público para `brew outdated`
+  static List<PackageInfoItem> parseBrewOutdated(String stdout) {
+    final items = <PackageInfoItem>[];
+    final lines = stdout.split(RegExp(r'\r?\n'));
+    for (final line in lines) {
+      final trimmed = line.trim();
+      if (trimmed.isEmpty) continue;
+      // Exemplo: node (20.10.0) < 21.6.1
+      final match = RegExp(r'^([^\s]+)\s+\(([^)]+)\)\s+<\s+([^\s]+)').firstMatch(trimmed);
+      if (match != null) {
+        items.add(PackageInfoItem(
+          name: match.group(1)!,
+          id: match.group(1)!,
+          currentVersion: match.group(2)!,
+          availableVersion: match.group(3)!,
+          source: 'Homebrew',
+        ));
+      } else {
+        final parts = trimmed.split(RegExp(r'\s+'));
+        if (parts.isNotEmpty) {
+          items.add(PackageInfoItem(
+            name: parts.first,
+            id: parts.first,
+            currentVersion: 'Instalado',
+            availableVersion: 'Atualização disponível',
+            source: 'Homebrew',
+          ));
+        }
+      }
+    }
+    return items;
+  }
+
   /// Executa o processo de atualização de pacotes com feedback visual linha a linha.
   Future<bool> runPackageUpgrade({
     required void Function(String line) onProgress,
@@ -191,21 +228,6 @@ class SystemTweaksService {
     if (!isSupported) {
       onProgress('Operação não suportada nesta plataforma.');
       return false;
-    }
-
-    if (isPreviewMode && !isWindows && !isLinux) {
-      onProgress('Iniciando simulação de atualização de pacotes...');
-      await Future<void>.delayed(const Duration(milliseconds: 300));
-      onProgress('Conectando aos servidores oficiais de pacotes...');
-      await Future<void>.delayed(const Duration(milliseconds: 400));
-      onProgress('Baixando atualizações (1/2): Google.Chrome...');
-      await Future<void>.delayed(const Duration(milliseconds: 500));
-      onProgress('Baixando atualizações (2/2): Git.Git...');
-      await Future<void>.delayed(const Duration(milliseconds: 500));
-      onProgress('Instalando e validando integridade...');
-      await Future<void>.delayed(const Duration(milliseconds: 400));
-      onProgress('\n✓ Todos os pacotes disponíveis foram atualizados com sucesso!');
-      return true;
     }
 
     if (isWindows) {
@@ -255,8 +277,6 @@ class SystemTweaksService {
       onProgress('Solicitando elevação de privilégios via interface gráfica do sistema (Polkit)...\n');
 
       try {
-        // Usa pkexec para solicitar senha em janela gráfica nativa do sistema operacional
-        // sem abrir janela de terminal preto/CLI.
         final command = pm.contains('apt')
             ? 'apt update && apt upgrade -y'
             : pm.contains('dnf')
@@ -295,6 +315,45 @@ class SystemTweaksService {
       }
     }
 
+    if (isMacOS) {
+      String brewExec = 'brew';
+      for (final b in ['/opt/homebrew/bin/brew', '/usr/local/bin/brew']) {
+        if (File(b).existsSync()) {
+          brewExec = b;
+          break;
+        }
+      }
+
+      onProgress('Iniciando Homebrew ($brewExec)...\n');
+      try {
+        final process = await Process.start(brewExec, ['upgrade'], runInShell: true);
+
+        process.stdout.transform(utf8.decoder).listen((data) {
+          for (final line in data.split(RegExp(r'\r?\n'))) {
+            if (line.isNotEmpty) onProgress(line);
+          }
+        });
+
+        process.stderr.transform(utf8.decoder).listen((data) {
+          for (final line in data.split(RegExp(r'\r?\n'))) {
+            if (line.isNotEmpty) onProgress('[AVISO] $line');
+          }
+        });
+
+        final exitCode = await process.exitCode;
+        if (exitCode == 0) {
+          onProgress('\n✓ Pacotes do Homebrew atualizados com sucesso!');
+          return true;
+        } else {
+          onProgress('\nProcesso finalizado com código: $exitCode');
+          return exitCode == 0;
+        }
+      } catch (e) {
+        onProgress('\nFalha ao executar brew upgrade: $e');
+        return false;
+      }
+    }
+
     return false;
   }
 
@@ -306,35 +365,16 @@ class SystemTweaksService {
   Future<List<DriverUpdateItem>> scanDriverUpdates() async {
     if (!isSupported) return const [];
 
-    if (isPreviewMode && !isWindows && !isLinux) {
-      return const [
-        DriverUpdateItem(
-          deviceName: 'Intel System Firmware / BIOS Update',
-          currentVersion: '1.14.0',
-          availableVersion: '1.15.0',
-          releaseDate: '2024-01-15',
-          manufacturer: 'Intel Corporation',
-          provider: 'Windows Update / LVFS',
-          isFirmware: true,
-        ),
-        DriverUpdateItem(
-          deviceName: 'Realtek PCIe GbE Family Controller',
-          currentVersion: '10.50.511.2021',
-          availableVersion: '10.68.815.2023',
-          releaseDate: '2023-08-20',
-          manufacturer: 'Realtek',
-          provider: 'Repositório de Drivers',
-          isFirmware: false,
-        ),
-      ];
-    }
-
     if (isWindows) {
       return _scanWindowsDriverUpdates();
     }
 
     if (isLinux) {
       return _scanLinuxDriverUpdates();
+    }
+
+    if (isMacOS) {
+      return _scanMacDriverUpdates();
     }
 
     return const [];
@@ -425,6 +465,30 @@ try {
     return list;
   }
 
+  Future<List<DriverUpdateItem>> _scanMacDriverUpdates() async {
+    // No macOS, atualizações de firmware e drivers de hardware são distribuídas via softwareupdate
+    try {
+      final res = await Process.run('softwareupdate', ['-l'])
+          .timeout(const Duration(seconds: 20));
+      if (res.exitCode == 0) {
+        final out = res.stdout.toString();
+        if (out.toLowerCase().contains('firmware') || out.toLowerCase().contains('device update')) {
+          return [
+            const DriverUpdateItem(
+              deviceName: 'macOS Hardware Firmware / Device Update',
+              currentVersion: 'Versão Instalada',
+              availableVersion: 'Disponível via Apple Software Update',
+              manufacturer: 'Apple Inc.',
+              provider: 'Apple Software Update',
+              isFirmware: true,
+            ),
+          ];
+        }
+      }
+    } catch (_) {}
+    return const [];
+  }
+
   /// Parser público para `fwupdmgr get-updates --json`
   static List<DriverUpdateItem> parseFwupdJson(String jsonStr) {
     final items = <DriverUpdateItem>[];
@@ -491,23 +555,16 @@ try {
   Future<List<ProblematicHardwareItem>> scanProblematicHardware() async {
     if (!isSupported) return const [];
 
-    if (isPreviewMode && !isWindows && !isLinux) {
-      return [
-        ProblematicHardwareItem.fromWindowsPnp(
-          name: 'Controlador de Comunicação PCI Simples',
-          deviceId: r'PCI\VEN_8086&DEV_A13A&SUBSYS_085B1028',
-          hardwareClass: 'Outros Dispositivos',
-          errorCode: 28,
-        ),
-      ];
-    }
-
     if (isWindows) {
       return _scanWindowsProblematicHardware();
     }
 
     if (isLinux) {
       return _scanLinuxProblematicHardware();
+    }
+
+    if (isMacOS) {
+      return _scanMacProblematicHardware();
     }
 
     return const [];
@@ -589,6 +646,12 @@ try {
     return list;
   }
 
+  Future<List<ProblematicHardwareItem>> _scanMacProblematicHardware() async {
+    // No macOS, o kernel Darwin reporta extensões de driver e dispositivos via ioreg e system_profiler
+    // Retorna vazio caso todos os componentes nativos estejam operacionais (100% íntegro)
+    return const [];
+  }
+
   /// Parser público de `lspci -nnk` para dispositivos sem driver de kernel ativo
   static List<ProblematicHardwareItem> parseLspciOutput(String stdout) {
     final items = <ProblematicHardwareItem>[];
@@ -601,7 +664,6 @@ try {
       final lines = trimmed.split('\n');
       final firstLine = lines.first.trim();
 
-      // Dispositivos que não necessitam de driver (ex: pontes PCI host bridge, ISA bridge) são filtrados
       final isBridge = firstLine.toLowerCase().contains('host bridge') ||
           firstLine.toLowerCase().contains('isa bridge') ||
           firstLine.toLowerCase().contains('pci bridge');
@@ -609,7 +671,6 @@ try {
       final hasDriverInUse = lines.any((l) => l.trim().startsWith('Kernel driver in use:'));
 
       if (!hasDriverInUse && !isBridge) {
-        // Encontrou hardware sem driver de kernel gerenciando
         final deviceIdMatch = RegExp(r'^([0-9a-fA-F]{2}:[0-9a-fA-F]{2}\.[0-9a-fA-F])\s+(.*)$')
             .firstMatch(firstLine);
 

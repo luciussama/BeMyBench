@@ -105,6 +105,20 @@ curl/jammy-updates,jammy-security 7.81.0-1ubuntu1.16 amd64 [upgradable from: 7.8
       expect(items[1].name, 'curl');
       expect(items[1].availableVersion, '7.81.0-1ubuntu1.16');
     });
+
+    test('parseBrewOutdated processa saída do brew outdated no macOS', () {
+      const sampleBrew = '''
+node (20.10.0) < 21.6.1
+python@3.11 (3.11.7) < 3.11.8
+''';
+
+      final items = SystemTweaksService.parseBrewOutdated(sampleBrew);
+      expect(items.length, 2);
+      expect(items[0].name, 'node');
+      expect(items[0].currentVersion, '20.10.0');
+      expect(items[0].availableVersion, '21.6.1');
+      expect(items[0].source, 'Homebrew');
+    });
   });
 
   group('SystemTweaksService - Parsers de Drivers (Pilar 2)', () {

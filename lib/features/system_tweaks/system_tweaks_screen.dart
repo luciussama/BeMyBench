@@ -538,6 +538,11 @@ class _SystemTweaksScreenState extends State<SystemTweaksScreen> {
   // ===========================================================================
 
   Widget _buildPackageUpdatesSection(SystemTweaksScanReport report) {
+    // Se a plataforma não possuir suporte a gerenciador de pacotes, omite o recurso sem disclaimer
+    if (!report.isPackageManagerAvailable) {
+      return const SizedBox.shrink();
+    }
+
     final count = report.availablePackages.length;
 
     return Container(

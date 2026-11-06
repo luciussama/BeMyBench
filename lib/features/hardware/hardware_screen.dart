@@ -6,6 +6,8 @@ import '../../core/theme/app_colors.dart';
 import '../../core/widgets/dashboard.dart';
 import '../battery/battery_service.dart';
 import '../benchmark/gpu_benchmark.dart';
+import '../cleaner/clean_disk_dialog.dart';
+import '../cleaner/ram_boost_dialog.dart';
 import '../sensors/sensors_service.dart';
 import '../storage/storage_panel.dart';
 import 'hardware_models.dart';
@@ -103,6 +105,14 @@ class _HardwareScreenState extends State<HardwareScreen> {
               info: _info!,
               wide: wide,
               onRunCpu: widget.onRunCpu,
+              onCleanDisk: () => CleanDiskDialog.show(
+                context,
+                onCompleted: () => _bootstrap(),
+              ),
+              onBoostRam: () => RamBoostDialog.show(
+                context,
+                onCompleted: () => _tickSensors(),
+              ),
             ),
             const SizedBox(height: 18),
             _StatusTiles(
@@ -257,18 +267,16 @@ class _HeroCard extends StatelessWidget {
   final HardwareInfo info;
   final bool wide;
   final VoidCallback? onRunCpu;
+  final VoidCallback? onCleanDisk;
+  final VoidCallback? onBoostRam;
 
   const _HeroCard({
     required this.info,
     required this.wide,
     this.onRunCpu,
+    this.onCleanDisk,
+    this.onBoostRam,
   });
-
-  void _soon(BuildContext context, String what) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$what chega na V1.1 (com confirmação e whitelist).')),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -343,7 +351,7 @@ class _HeroCard extends StatelessWidget {
           ),
         ),
         OutlinedButton.icon(
-          onPressed: () => _soon(context, 'Limpeza de disco'),
+          onPressed: onCleanDisk,
           icon: const Icon(Icons.cleaning_services_outlined, size: 18),
           label: const Text('Limpar Disco'),
           style: OutlinedButton.styleFrom(
@@ -352,7 +360,7 @@ class _HeroCard extends StatelessWidget {
           ),
         ),
         OutlinedButton.icon(
-          onPressed: () => _soon(context, 'Boost de RAM'),
+          onPressed: onBoostRam,
           icon: const Icon(Icons.bolt, size: 18),
           label: const Text('Boost RAM'),
           style: OutlinedButton.styleFrom(

@@ -101,7 +101,7 @@ class MainFlutterWindow: NSWindow {
 // Janela 3D Nativa (Metal / FurMark-like) com VSync OFF e HUD
 // =====================================================================
 
-final class GpuLiveWindowController: NSObject, NSWindowDelegate, MTKViewDelegate {
+final class GpuLiveWindowController: NSObject, NSWindowDelegate {
   static let shared = GpuLiveWindowController()
 
   private var window: NSWindow?
@@ -117,13 +117,14 @@ final class GpuLiveWindowController: NSObject, NSWindowDelegate, MTKViewDelegate
   private let statusLabel = NSTextField(labelWithString: "Status: Rodando")
   private let modeControl = NSSegmentedControl(labels: ["Benchmark (15s)", "Estresse"], trackingMode: .selectOne, target: nil, action: nil)
 
-  // Métricas de render
+  // Métricas e controle de render
   private var frameCount: Int = 0
   private var startTimeNs: UInt64 = 0
   private var lastFrameTimeNs: UInt64 = 0
   private var recentFrameDeltas: [Double] = []
   private var currentMode: String = "stress" // "benchmark" ou "stress"
   private var isBenchmarkComplete: Bool = false
+  private var isRunningLoop: Bool = false
   private var peakFps: Double = 0.0
   private var minFps: Double = 0.0
   private var benchmarkScore: Double = 0.0
@@ -145,9 +146,9 @@ final class GpuLiveWindowController: NSObject, NSWindowDelegate, MTKViewDelegate
 
     if let w = window {
       updateModeSelection()
-      mtkView?.isPaused = false
       w.makeKeyAndOrderFront(nil)
       NSApp.activate(ignoringOtherApps: true)
+      startRenderLoop()
       return
     }
 
@@ -155,10 +156,11 @@ final class GpuLiveWindowController: NSObject, NSWindowDelegate, MTKViewDelegate
     updateModeSelection()
     window?.makeKeyAndOrderFront(nil)
     NSApp.activate(ignoringOtherApps: true)
+    startRenderLoop()
   }
 
   func closeWindow() {
-    mtkView?.isPaused = true
+    isRunningLoop = false
     window?.orderOut(nil)
   }
 
@@ -183,17 +185,17 @@ final class GpuLiveWindowController: NSObject, NSWindowDelegate, MTKViewDelegate
     view.colorPixelFormat = .bgra8Unorm
     view.depthStencilPixelFormat = .depth32Float
     view.clearColor = MTLClearColorMake(0.04, 0.06, 0.09, 1.0)
-    view.isPaused = false
+    // Desativa timer interno de 60Hz do MTKView para rodar em loop desvinculado (VSync OFF)
+    view.isPaused = true
     view.enableSetNeedsDisplay = false
     view.autoResizeDrawable = false
     view.drawableSize = CGSize(width: 1920, height: 1080)
-    view.preferredFramesPerSecond = 120
-    view.delegate = self
 
     // VSync OFF: desliga sincronização de display na CAMetalLayer
     if let layer = view.layer as? CAMetalLayer {
       layer.displaySyncEnabled = false
       layer.allowsNextDrawableTimeout = false
+      layer.maximumDrawableCount = 3
     }
 
     setupHud(over: view, dev: dev)
@@ -274,68 +276,81 @@ final class GpuLiveWindowController: NSObject, NSWindowDelegate, MTKViewDelegate
     show(mode: newMode)
   }
 
-  // MARK: - MTKViewDelegate
+  // MARK: - Loop de Renderização Desvinculado (VSync OFF / FurMark Engine)
 
-  func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {}
+  private func startRenderLoop() {
+    guard !isRunningLoop else { return }
+    isRunningLoop = true
 
-  func draw(in view: MTKView) {
-    if isBenchmarkComplete {
-      return
-    }
+    DispatchQueue.global(qos: .userInteractive).async { [weak self] in
+      while let self = self, self.isRunningLoop {
+        autoreleasepool {
+          guard self.isRunningLoop else { return }
 
-    guard let drawable = view.currentDrawable,
-          let queue = GpuBenchmark.shared.commandQueue,
-          let cb = queue.makeCommandBuffer() else {
-      return
-    }
-
-    let nowNs = DispatchTime.now().uptimeNanoseconds
-    let frameDelta = Double(nowNs - lastFrameTimeNs) / 1_000_000_000.0
-    lastFrameTimeNs = nowNs
-    if frameDelta > 0 && frameDelta < 0.5 {
-      recentFrameDeltas.append(frameDelta)
-      if recentFrameDeltas.count > 45 {
-        recentFrameDeltas.removeFirst()
-      }
-    }
-
-    frameCount += 1
-
-    // Executa os passes 3D Metal em tempo real na textura do drawable
-    let ok = GpuBenchmark.shared.encodeRenderFrame(cb, frameIndex: frameCount, targetTexture: drawable.texture)
-    if ok {
-      cb.present(drawable)
-      cb.commit()
-    }
-
-    // Atualiza HUD na main thread periodicamente (a cada ~8 frames)
-    if frameCount % 8 == 0 {
-      let elapsedSec = Double(nowNs - startTimeNs) / 1_000_000_000.0
-      let avgDelta = recentFrameDeltas.isEmpty ? 0.016 : recentFrameDeltas.reduce(0, +) / Double(recentFrameDeltas.count)
-      let curFps = avgDelta > 0 ? 1.0 / avgDelta : 0.0
-      let frameMs = avgDelta * 1000.0
-
-      if peakFps == 0.0 || curFps > peakFps { peakFps = curFps }
-      if minFps == 0.0 || (curFps < minFps && frameCount > 30) { minFps = curFps }
-
-      DispatchQueue.main.async { [weak self] in
-        guard let self = self else { return }
-        self.fpsLabel.stringValue = String(format: "FPS: %.1f", curFps)
-        self.frameTimeLabel.stringValue = String(format: "Frame: %.2f ms", frameMs)
-
-        if self.currentMode == "benchmark" {
-          let remaining = max(0.0, 15.0 - elapsedSec)
-          self.statusLabel.stringValue = String(format: "Tempo: %.1fs / 15.0s", elapsedSec)
-          if remaining <= 0.0 && !self.isBenchmarkComplete {
-            self.isBenchmarkComplete = true
-            let totalAvgFps = Double(self.frameCount) / elapsedSec
-            self.benchmarkScore = totalAvgFps * 100.0
-            self.statusLabel.stringValue = String(format: "Concluído! Score: %.0f", self.benchmarkScore)
-            self.statusLabel.textColor = NSColor(red: 0.2, green: 0.85, blue: 0.4, alpha: 1.0)
+          guard let view = self.mtkView,
+                let layer = view.layer as? CAMetalLayer else {
+            Thread.sleep(forTimeInterval: 0.001)
+            return
           }
-        } else {
-          let drop = self.peakFps > 0 ? max(0, (self.peakFps - curFps) / self.peakFps * 100.0) : 0.0
-          self.statusLabel.stringValue = String(format: "Tempo: %02d:%02d | Queda: %.0f%%", Int(elapsedSec) / 60, Int(elapsedSec) % 60, drop)
+
+          guard let drawable = layer.nextDrawable(),
+                let queue = GpuBenchmark.shared.commandQueue,
+                let cb = queue.makeCommandBuffer() else {
+            Thread.sleep(forTimeInterval: 0.0005)
+            return
+          }
+
+          let nowNs = DispatchTime.now().uptimeNanoseconds
+          let frameDelta = Double(nowNs - self.lastFrameTimeNs) / 1_000_000_000.0
+          self.lastFrameTimeNs = nowNs
+          if frameDelta > 0 && frameDelta < 0.5 {
+            self.recentFrameDeltas.append(frameDelta)
+            if self.recentFrameDeltas.count > 60 {
+              self.recentFrameDeltas.removeFirst()
+            }
+          }
+
+          self.frameCount += 1
+
+          // Executa os passes 3D Metal em tempo real na textura do drawable
+          let ok = GpuBenchmark.shared.encodeRenderFrame(cb, frameIndex: self.frameCount, targetTexture: drawable.texture)
+          if ok {
+            cb.present(drawable)
+            cb.commit()
+          }
+
+          // Atualiza HUD periodicamente (a cada ~12 frames para suavidade sem pesar na main thread)
+          if self.frameCount % 12 == 0 {
+            let elapsedSec = Double(nowNs - self.startTimeNs) / 1_000_000_000.0
+            let avgDelta = self.recentFrameDeltas.isEmpty ? 0.004 : self.recentFrameDeltas.reduce(0, +) / Double(self.recentFrameDeltas.count)
+            let curFps = avgDelta > 0 ? 1.0 / avgDelta : 0.0
+            let frameMs = avgDelta * 1000.0
+
+            if self.peakFps == 0.0 || curFps > self.peakFps { self.peakFps = curFps }
+            if self.minFps == 0.0 || (curFps < self.minFps && self.frameCount > 30) { self.minFps = curFps }
+
+            DispatchQueue.main.async { [weak self] in
+              guard let self = self else { return }
+              self.fpsLabel.stringValue = String(format: "FPS: %.1f", curFps)
+              self.frameTimeLabel.stringValue = String(format: "Frame: %.2f ms", frameMs)
+
+              if self.currentMode == "benchmark" {
+                let remaining = max(0.0, 15.0 - elapsedSec)
+                self.statusLabel.stringValue = String(format: "Tempo: %.1fs / 15.0s", elapsedSec)
+                if remaining <= 0.0 && !self.isBenchmarkComplete {
+                  self.isBenchmarkComplete = true
+                  self.isRunningLoop = false
+                  let totalAvgFps = Double(self.frameCount) / elapsedSec
+                  self.benchmarkScore = totalAvgFps * 100.0
+                  self.statusLabel.stringValue = String(format: "Concluído! Score: %.0f", self.benchmarkScore)
+                  self.statusLabel.textColor = NSColor(red: 0.2, green: 0.85, blue: 0.4, alpha: 1.0)
+                }
+              } else {
+                let drop = self.peakFps > 0 ? max(0, (self.peakFps - curFps) / self.peakFps * 100.0) : 0.0
+                self.statusLabel.stringValue = String(format: "Tempo: %02d:%02d | Queda: %.0f%%", Int(elapsedSec) / 60, Int(elapsedSec) % 60, drop)
+              }
+            }
+          }
         }
       }
     }
@@ -344,7 +359,7 @@ final class GpuLiveWindowController: NSObject, NSWindowDelegate, MTKViewDelegate
   // MARK: - NSWindowDelegate
 
   func windowShouldClose(_ sender: NSWindow) -> Bool {
-    mtkView?.isPaused = true
+    isRunningLoop = false
     sender.orderOut(nil)
     return false
   }

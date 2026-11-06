@@ -32,6 +32,27 @@ class _TopNavState extends State<TopNav> {
     Icons.history,
   ];
 
+  static IconData _iconFor(String label, int index) {
+    switch (label) {
+      case 'Hardware':
+        return Icons.memory;
+      case 'Sensores':
+        return Icons.thermostat;
+      case 'Bateria':
+        return Icons.battery_std;
+      case 'Benchmark':
+        return Icons.speed;
+      case 'Estresse':
+        return Icons.whatshot;
+      case 'Histórico':
+        return Icons.history;
+      case 'Ajustes':
+        return Icons.tune_rounded;
+      default:
+        return _icons[index % _icons.length];
+    }
+  }
+
   @override
   void dispose() {
     _scrollController.dispose();
@@ -84,7 +105,7 @@ class _TopNavState extends State<TopNav> {
                       Padding(
                         padding: const EdgeInsets.only(right: 6),
                         child: _NavPill(
-                          icon: _icons[i % _icons.length],
+                          icon: _iconFor(widget.items[i], i),
                           label: widget.items[i],
                           active: i == widget.selected,
                           onTap: () => widget.onSelect(i),

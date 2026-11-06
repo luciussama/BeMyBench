@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 /// sensores térmicos e de ventoinha via canal nativo `bemybench/sensors`.
 class SensorsSnapshot {
   final double cpuUsagePercent;
+  final double? gpuUsagePercent;
   final int ramUsedBytes;
   final int ramTotalBytes;
   final double? temperatureC;
@@ -19,6 +20,7 @@ class SensorsSnapshot {
 
   const SensorsSnapshot({
     required this.cpuUsagePercent,
+    this.gpuUsagePercent,
     required this.ramUsedBytes,
     required this.ramTotalBytes,
     this.temperatureC,
@@ -122,9 +124,10 @@ class SensorsService {
       used = (active + wired + compressed) * _pageSize;
     } catch (_) {}
 
-    // Temperaturas e Ventoinha via canal nativo
+    // Temperaturas, Ventoinha e Carga de GPU via canal nativo
     double? cpuTemp;
     double? gpuTemp;
+    double? gpuUsage;
     double? tempC;
     bool hasFan = true;
     String fanStatus = 'Normal';
@@ -138,6 +141,7 @@ class SensorsService {
       if (res != null) {
         cpuTemp = (res['cpu_temp'] as num?)?.toDouble();
         gpuTemp = (res['gpu_temp'] as num?)?.toDouble();
+        gpuUsage = (res['gpu_usage'] as num?)?.toDouble();
         tempC = cpuTemp ?? gpuTemp;
         hasFan = res['has_fan'] as bool? ?? true;
         fanStatus = res['fan_status'] as String? ?? 'Normal';
@@ -148,6 +152,7 @@ class SensorsService {
 
     return SensorsSnapshot(
       cpuUsagePercent: cpu.clamp(0, 100).toDouble(),
+      gpuUsagePercent: gpuUsage,
       ramUsedBytes: used,
       ramTotalBytes: total,
       temperatureC: tempC,

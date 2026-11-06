@@ -137,7 +137,7 @@ class _SensorsScreenState extends State<SensorsScreen> {
                       ? '${s.temperatureC!.toStringAsFixed(0)} °C'
                       : 'N/A'),
               caption: s.gpuTemperatureC != null
-                  ? 'GPU: ${s.gpuTemperatureC!.toStringAsFixed(0)} °C · ${s.thermalState}'
+                  ? 'GPU: ${s.gpuTemperatureC!.toStringAsFixed(0)} °C${s.gpuUsagePercent != null ? ' (${s.gpuUsagePercent!.toStringAsFixed(0)}% uso)' : ''} · ${s.thermalState}'
                   : s.thermalState,
               valueColor: _tempColor(s.cpuTemperatureC ?? s.temperatureC),
             ),

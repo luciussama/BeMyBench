@@ -2,14 +2,16 @@ name: Build & Release Multi-Platform Packages
 
 on:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
   workflow_dispatch:
     inputs:
       version_tag:
-        description: 'Tag da Versão (ex: v1.0)'
+        description: 'Tag da Versão (ex: v1.1.0)'
         required: true
-        default: 'v1.0'
+        default: 'v1.1.0'
 
 permissions:
   contents: write
@@ -32,8 +34,10 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             echo "RELEASE_TAG=${{ github.event.inputs.version_tag }}" >> $GITHUB_OUTPUT
-          else
+          elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "RELEASE_TAG=v1.1.0" >> $GITHUB_OUTPUT
           fi
 
       - name: Criar Release Pública Inicial

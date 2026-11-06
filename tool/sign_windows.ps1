@@ -35,14 +35,20 @@ if (-not (Test-Path $pfxPath)) {
 }
 
 # 2. Localiza signtool.exe
-$signtoolPaths = @(
-    "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool.exe",
-    "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe"
-)
 $signtool = $null
-foreach ($p in $signtoolPaths) {
-    $found = Get-Item $p -ErrorAction SilentlyContinue | Select-Object -First 1
-    if ($found) { $signtool = $found.FullName; break }
+$signtoolCmd = Get-Command signtool.exe -ErrorAction SilentlyContinue
+if ($signtoolCmd) {
+    $signtool = $signtoolCmd.Source
+} else {
+    $signtoolPaths = @(
+        "C:\Program Files (x86)\Windows Kits\10\bin\10.0.26100.0\x64\signtool.exe",
+        "C:\Program Files (x86)\Windows Kits\10\bin\*\x64\signtool.exe",
+        "C:\Program Files (x86)\Windows Kits\10\App Certification Kit\signtool.exe"
+    )
+    foreach ($p in $signtoolPaths) {
+        $found = Get-Item $p -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($found) { $signtool = $found.FullName; break }
+    }
 }
 
 if (-not $signtool) {

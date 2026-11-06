@@ -44,7 +44,7 @@ jobs:
         with:
           ndk-version: r26b
 
-      - name: Compilar Core Rust para Android (ABIs: arm64-v8a, armeabi-v7a, x86_64)
+      - name: "Compilar Core Rust para Android (arm64-v8a, armeabi-v7a, x86_64)"
         run: |
           mkdir -p android/app/src/main/jniLibs
           cd rust

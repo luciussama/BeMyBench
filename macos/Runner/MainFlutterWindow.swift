@@ -185,7 +185,9 @@ final class GpuLiveWindowController: NSObject, NSWindowDelegate, MTKViewDelegate
     view.clearColor = MTLClearColorMake(0.04, 0.06, 0.09, 1.0)
     view.isPaused = false
     view.enableSetNeedsDisplay = false
-    view.preferredFramesPerSecond = 0 // Destrava taxa de quadros (VSync OFF)
+    view.autoResizeDrawable = false
+    view.drawableSize = CGSize(width: 1920, height: 1080)
+    view.preferredFramesPerSecond = 120
     view.delegate = self
 
     // VSync OFF: desliga sincronização de display na CAMetalLayer

@@ -197,20 +197,24 @@ jobs:
       - name: Compilar Executável Windows
         run: flutter build windows --release
 
-      - name: Copiar DLL Rust e Compactar Release
+      - name: Copiar DLL Rust, Assinar e Gerar Instalador MSI
         shell: pwsh
         run: |
           $ReleaseDir = if (Test-Path "build/windows/x64/runner/Release") { "build/windows/x64/runner/Release" } else { "build/windows/runner/Release" }
           Copy-Item "rust/target/release/bemybench_core.dll" -Destination "$ReleaseDir/"
+          & powershell -ExecutionPolicy Bypass -File tool/build_msi.ps1
           New-Item -ItemType Directory -Force -Path "artifacts"
+          Copy-Item "$ReleaseDir/bemybench-windows-x64.msi" -Destination "artifacts/bemybench-windows-x64.msi"
           Compress-Archive -Path "$ReleaseDir/*" -DestinationPath "artifacts/bemybench-windows-x64.zip" -Force
 
-      - name: Upload Direto do ZIP na Release do GitHub
+      - name: Upload do Instalador MSI e ZIP na Release do GitHub
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ needs.create-release.outputs.release_tag }}
-          files: artifacts/bemybench-windows-x64.zip
+          files: |
+            artifacts/bemybench-windows-x64.msi
+            artifacts/bemybench-windows-x64.zip
 
   # ===========================================================================
   # 5. LINUX: Compilação do Rust Core, Pacote e Upload na Release

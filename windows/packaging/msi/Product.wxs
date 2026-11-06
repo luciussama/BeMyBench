@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="windows-1252"?>
+<Wix xmlns="http://schemas.microsoft.com/wix/2006/wi">
+    <Product Id="*"
+             Name="BMyBench"
+             Language="1033"
+             Codepage="1252"
+             Version="1.0.0.0"
+             Manufacturer="BMyBench"
+             UpgradeCode="680B1C4B-B85E-4952-B488-8921865FDF60">
+
+        <Package InstallerVersion="500"
+                 Compressed="yes"
+                 InstallScope="perMachine"
+                 Platform="x64"
+                 SummaryCodepage="1252"
+                 Description="BMyBench - Hardware Diagnostic and Benchmark" />
+
+        <MajorUpgrade DowngradeErrorMessage="A newer version of BMyBench is already installed." />
+        <MediaTemplate EmbedCab="yes" />
+
+        <Icon Id="AppIcon" SourceFile="$(var.ProjectDir)\windows\runner\resources\app_icon.ico" />
+        <Property Id="ARPPRODUCTICON" Value="AppIcon" />
+        <Property Id="ARPHELPLINK" Value="https://github.com/luciussama/BeMyBench" />
+
+        <Directory Id="TARGETDIR" Name="SourceDir">
+            <Directory Id="ProgramFiles64Folder">
+                <Directory Id="INSTALLFOLDER" Name="BMyBench" />
+            </Directory>
+            <Directory Id="ProgramMenuFolder">
+                <Directory Id="ApplicationProgramsFolder" Name="BMyBench" />
+            </Directory>
+            <Directory Id="DesktopFolder" Name="Desktop" />
+        </Directory>
+
+        <!-- Atalho no Menu Iniciar -->
+        <DirectoryRef Id="ApplicationProgramsFolder">
+            <Component Id="ApplicationShortcut" Guid="B29C1F5C-6F47-49F1-8B8E-119133333331">
+                <Shortcut Id="ApplicationStartMenuShortcut"
+                          Name="BMyBench"
+                          Description="BMyBench - Hardware Diagnostic and Benchmark"
+                          Target="[INSTALLFOLDER]bemybench.exe"
+                          WorkingDirectory="INSTALLFOLDER"
+                          Icon="AppIcon" />
+                <RemoveFolder Id="CleanUpShortCut" Directory="ApplicationProgramsFolder" On="uninstall" />
+                <RegistryValue Root="HKCU" Key="Software\BMyBench" Name="installed" Type="integer" Value="1" KeyPath="yes" />
+            </Component>
+        </DirectoryRef>
+
+        <!-- Atalho na Área de Trabalho -->
+        <DirectoryRef Id="DesktopFolder">
+            <Component Id="ApplicationShortcutDesktop" Guid="C39D2F6D-7F58-40F2-9C9F-220244444442">
+                <Shortcut Id="ApplicationDesktopShortcut"
+                          Name="BMyBench"
+                          Description="BMyBench - Hardware Diagnostic and Benchmark"
+                          Target="[INSTALLFOLDER]bemybench.exe"
+                          WorkingDirectory="INSTALLFOLDER"
+                          Icon="AppIcon" />
+                <RegistryValue Root="HKCU" Key="Software\BMyBench" Name="desktop_shortcut" Type="integer" Value="1" KeyPath="yes" />
+            </Component>
+        </DirectoryRef>
+
+        <Feature Id="ProductFeature" Title="BMyBench" Level="1">
+            <ComponentGroupRef Id="AppFiles" />
+            <ComponentRef Id="ApplicationShortcut" />
+            <ComponentRef Id="ApplicationShortcutDesktop" />
+        </Feature>
+    </Product>
+</Wix>

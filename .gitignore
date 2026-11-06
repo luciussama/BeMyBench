@@ -54,3 +54,13 @@ app.*.map.json
 journal.json
 AGENTS.md
 
+
+# Certificates and keys
+*.pfx
+*.p12
+*.key
+*.cer
+
+# Portable WiX binaries
+tool/wix/
+tool/wix314/

@@ -73,6 +73,19 @@ class NativeCore {
   }
 
   static String _resolvePath() {
+    final name = _libFileName();
+
+    // No Android, o dynamic linker carrega a biblioteca nativa diretamente
+    // do pacote jniLibs embutido no APK pelo nome simples.
+    if (Platform.isAndroid) {
+      try {
+        DynamicLibrary.open(name);
+        return name;
+      } catch (_) {
+        // Segue para os caminhos convencionais caso esteja em testes ou fora do bundle
+      }
+    }
+
     final tried = <String>[];
     for (final path in _candidates()) {
       tried.add(path);

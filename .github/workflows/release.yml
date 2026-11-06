@@ -1,0 +1,288 @@
+name: Build & Release Multi-Platform Packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version_tag:
+        description: 'Tag da Versão (ex: v1.0)'
+        required: true
+        default: 'v1.0'
+
+permissions:
+  contents: write
+
+jobs:
+  # ===========================================================================
+  # 1. ANDROID: Compilação do Rust Core (NDK) e Geração do APK
+  # ===========================================================================
+  build-android:
+    name: Build Android APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Configurar Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-linux-android, x86_64-linux-android, armv7-linux-androideabi
+
+      - name: Instalar cargo-ndk
+        run: cargo install cargo-ndk
+
+      - name: Configurar Android NDK
+        uses: nttld/setup-ndk@v1
+        with:
+          ndk-version: r26b
+
+      - name: Compilar Core Rust para Android (ABIs: arm64-v8a, armeabi-v7a, x86_64)
+        run: |
+          mkdir -p android/app/src/main/jniLibs
+          cd rust
+          cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 -o ../android/app/src/main/jniLibs build --release
+          cd ..
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.9'
+          channel: 'stable'
+          cache: true
+
+      - name: Obter dependências do Flutter
+        run: flutter pub get
+
+      - name: Compilar APK de Release
+        run: flutter build apk --release
+
+      - name: Renomear e Preparar Artefato Android
+        run: |
+          mkdir -p artifacts
+          cp build/app/outputs/flutter-apk/app-release.apk artifacts/bemybench-android.apk
+
+      - name: Upload Artefato Android
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-package
+          path: artifacts/bemybench-android.apk
+
+  # ===========================================================================
+  # 2. MACOS: Compilação do Rust Core e Empacotamento em DMG
+  # ===========================================================================
+  build-macos:
+    name: Build macOS DMG
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Compilar Core Rust (macOS)
+        run: |
+          cd rust
+          cargo build --release
+          cd ..
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.9'
+          channel: 'stable'
+          cache: true
+
+      - name: Obter dependências do Flutter
+        run: flutter pub get
+
+      - name: Compilar Aplicativo macOS
+        run: flutter build macos --release
+
+      - name: Embutir dylib Rust no Bundle e Criar DMG
+        run: |
+          APP="build/macos/Build/Products/Release/bemybench.app"
+          mkdir -p "$APP/Contents/Frameworks"
+          cp rust/target/release/libbemybench_core.dylib "$APP/Contents/Frameworks/"
+          codesign --force --sign - "$APP/Contents/Frameworks/libbemybench_core.dylib"
+          codesign --force --sign - "$APP"
+          
+          mkdir -p artifacts
+          hdiutil create -volname "BMyBench" -srcfolder "$APP" -ov -format UDZO artifacts/bemybench-macos.dmg
+
+      - name: Upload Artefato macOS
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-package
+          path: artifacts/bemybench-macos.dmg
+
+  # ===========================================================================
+  # 3. WINDOWS: Compilação do Rust Core e Empacotamento em ZIP
+  # ===========================================================================
+  build-windows:
+    name: Build Windows x64
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Compilar Core Rust (Windows x64)
+        run: |
+          cd rust
+          cargo build --release
+          cd ..
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.9'
+          channel: 'stable'
+          cache: true
+
+      - name: Habilitar Desktop Windows e Obter Dependências
+        run: |
+          flutter config --enable-windows-desktop
+          flutter pub get
+
+      - name: Compilar Executável Windows
+        run: flutter build windows --release
+
+      - name: Copiar DLL Rust e Compactar Release
+        shell: pwsh
+        run: |
+          $ReleaseDir = "build/windows/x64/runner/Release"
+          Copy-Item "rust/target/release/bemybench_core.dll" -Destination "$ReleaseDir/"
+          New-Item -ItemType Directory -Force -Path "artifacts"
+          Compress-Archive -Path "$ReleaseDir/*" -DestinationPath "artifacts/bemybench-windows-x64.zip"
+
+      - name: Upload Artefato Windows
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-package
+          path: artifacts/bemybench-windows-x64.zip
+
+  # ===========================================================================
+  # 4. LINUX: Compilação do Rust Core e Empacotamento Linux (tar.gz e AppImage)
+  # ===========================================================================
+  build-linux:
+    name: Build Linux x64
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repositório
+        uses: actions/checkout@v4
+
+      - name: Instalar dependências de build Linux (GTK3, CMake, Ninja, Clang)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+
+      - name: Configurar Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Compilar Core Rust (Linux)
+        run: |
+          cd rust
+          cargo build --release
+          cd ..
+
+      - name: Configurar Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.9'
+          channel: 'stable'
+          cache: true
+
+      - name: Habilitar Desktop Linux e Obter Dependências
+        run: |
+          flutter config --enable-linux-desktop
+          flutter pub get
+
+      - name: Compilar Bundle Linux
+        run: flutter build linux --release
+
+      - name: Embutir lib Rust e Compactar Pacote Linux
+        run: |
+          BUNDLE="build/linux/x64/release/bundle"
+          mkdir -p "$BUNDLE/lib"
+          cp rust/target/release/libbemybench_core.so "$BUNDLE/lib/"
+          
+          mkdir -p artifacts
+          tar -czvf artifacts/bemybench-linux-x64.tar.gz -C "$BUNDLE" .
+
+      - name: Upload Artefato Linux
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-package
+          path: artifacts/bemybench-linux-x64.tar.gz
+
+  # ===========================================================================
+  # 5. PUBLISH RELEASE: Publica a Release no GitHub com os 4 pacotes
+  # ===========================================================================
+  publish-release:
+    name: Publicar GitHub Release
+    needs: [build-android, build-macos, build-windows, build-linux]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repositório
+        uses: actions/checkout@v4
+
+      - name: Criar diretório de download
+        run: mkdir -p release_assets
+
+      - name: Baixar Pacote Android
+        uses: actions/download-artifact@v4
+        with:
+          name: android-package
+          path: release_assets
+
+      - name: Baixar Pacote macOS
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-package
+          path: release_assets
+
+      - name: Baixar Pacote Windows
+        uses: actions/download-artifact@v4
+        with:
+          name: windows-package
+          path: release_assets
+
+      - name: Baixar Pacote Linux
+        uses: actions/download-artifact@v4
+        with:
+          name: linux-package
+          path: release_assets
+
+      - name: Determinar Tag da Release
+        id: tag_step
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "RELEASE_TAG=${{ github.event.inputs.version_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Criar e Publicar GitHub Release com os 4 Pacotes
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ steps.tag_step.outputs.RELEASE_TAG }}
+          name: "BMyBench ${{ steps.tag_step.outputs.RELEASE_TAG }} — Release Multi-Plataforma"
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            release_assets/bemybench-android.apk
+            release_assets/bemybench-macos.dmg
+            release_assets/bemybench-windows-x64.zip
+            release_assets/bemybench-linux-x64.tar.gz

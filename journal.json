@@ -637,7 +637,8 @@
         "lifecycleSynced": true,
         "mergedToMain": true
       },
-      "status": "concluído"
+      "status": "concluído",
+      "mergeCommit": "2a0fa7d"
     }
   ],
   "roadmap": {

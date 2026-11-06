@@ -696,6 +696,25 @@
       },
       "commit": "bd91d20",
       "status": "concluído"
+    },
+    {
+      "date": "2026-11-06T20:35",
+      "phase": "Fix Calibração de Estresse - Nível Torture Test (Escalabilidade RTX 5070)",
+      "done": [
+        "macos/Runner/GpuBenchmark.swift: raymarching fractal 3D de pelagem expandido de 96 para 160 passos no fragment shader com autosombreamento volumétrico",
+        "macos/Runner/GpuBenchmark.swift: ruído procedural fBm do céu expandido para 8 oitavas de alta frequência",
+        "macos/Runner/GpuBenchmark.swift: passe de compute furnace intensificado de 128 para 480 iterações vetoriais densas sobre 2.073.600 threads (mais de 1 bilhão de operações por quadro), calibrando o tempo de GPU para ~26-28 ms no M5 base (35-40 FPS)",
+        "macos/Runner/GpuBenchmark.swift: runRender() configurado com burnInCompute ativo para alinhar o benchmark formal à mesma carga de tortura da janela ao vivo",
+        "assets/data/reference_gpu.json: âncora render_fps atualizada para 36.5 fps; adicionadas placas topo de linha GeForce RTX 5070 (12GB) e RTX 5080 (16GB) na base de comparação para escalabilidade precisa"
+      ],
+      "verified": {
+        "m5TargetFps": "35-40 fps",
+        "gpuLoad": "100%",
+        "rtx5070Added": true,
+        "rtx5080Added": true
+      },
+      "commit": "dccc79f",
+      "status": "concluído"
     }
   ],
   "roadmap": {

@@ -130,7 +130,7 @@ class GpuBenchResult {
 class GpuBenchmarkService {
   static const MethodChannel _channel = MethodChannel('bemybench/gpu');
 
-  static bool get isSupported => Platform.isMacOS;
+  static bool get isSupported => Platform.isMacOS || Platform.isWindows;
 
   Future<GpuInfo?> info() async {
     if (!isSupported) return null;
@@ -148,7 +148,7 @@ class GpuBenchmarkService {
   Future<GpuBenchResult> run({int durationMs = 1500}) async {
     if (!isSupported) {
       throw UnsupportedError(
-        'O benchmark de GPU está disponível apenas no macOS nesta versão.',
+        'O benchmark de GPU está disponível apenas no macOS e Windows nesta versão.',
       );
     }
     final map = await _channel.invokeMapMethod<String, dynamic>(
@@ -165,7 +165,7 @@ class GpuBenchmarkService {
   Future<GpuBenchResult> runRender({int durationMs = 1500}) async {
     if (!isSupported) {
       throw UnsupportedError(
-        'O benchmark de GPU está disponível apenas no macOS nesta versão.',
+        'O benchmark de GPU está disponível apenas no macOS e Windows nesta versão.',
       );
     }
     final map = await _channel.invokeMapMethod<String, dynamic>(

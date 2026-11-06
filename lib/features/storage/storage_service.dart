@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 /// Um volume montado (partição/dispositivo) com uso de espaço.
@@ -21,6 +22,7 @@ class StorageVolume {
   /// Nome amigável do volume (basename do ponto de montagem).
   String get label {
     if (mount == '/') return 'Raiz (/)';
+    if (mount.contains(':')) return mount; // Windows C:, D:, etc.
     final trimmed = mount.endsWith('/') && mount.length > 1
         ? mount.substring(0, mount.length - 1)
         : mount;
@@ -91,14 +93,61 @@ class StorageService {
     return volumes;
   }
 
-  /// Coleta os volumes montados. Retorna lista vazia em plataformas sem `df`.
+  /// Coleta os volumes montados (macOS/Linux via df, Windows via WMI).
   Future<List<StorageVolume>> collect() async {
+    if (Platform.isWindows) {
+      return _collectWindows();
+    }
     if (!(Platform.isMacOS || Platform.isLinux)) return const [];
 
     try {
       final result = await Process.run('df', ['-kP']);
       final out = (result.stdout as String?) ?? '';
       return parseDf(out);
+    } catch (_) {
+      return const [];
+    }
+  }
+
+  Future<List<StorageVolume>> _collectWindows() async {
+    try {
+      final r = await Process.run('powershell', [
+        '-NoProfile',
+        '-Command',
+        'Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | Select-Object DeviceID, VolumeName, Size, FreeSpace, FileSystem | ConvertTo-Json',
+      ]);
+      final out = (r.stdout as String).trim();
+      if (out.isEmpty) return const [];
+
+      final decoded = jsonDecode(out);
+      final list = decoded is List ? decoded : [decoded];
+      final volumes = <StorageVolume>[];
+
+      for (final item in list) {
+        if (item is! Map<String, dynamic>) continue;
+        final devId = item['DeviceID']?.toString() ?? '';
+        final volName = item['VolumeName']?.toString() ?? '';
+        final fs = item['FileSystem']?.toString() ?? 'NTFS';
+        final size = (item['Size'] as num?)?.toInt() ?? 0;
+        final free = (item['FreeSpace'] as num?)?.toInt() ?? 0;
+        if (size <= 0) continue;
+
+        final used = size - free;
+        final percent = (used * 100 / size).round();
+        final mountLabel = volName.isNotEmpty ? '$volName ($devId)' : devId;
+
+        volumes.add(
+          StorageVolume(
+            filesystem: fs,
+            mount: mountLabel,
+            totalBytes: size,
+            usedBytes: used,
+            freeBytes: free,
+            capacityPercent: percent,
+          ),
+        );
+      }
+      return volumes;
     } catch (_) {
       return const [];
     }

@@ -16,6 +16,19 @@ class NativeCore {
     _cpu = _lib.lookupFunction<_CpuFnC, _CpuFnDart>('bmb_cpu_benchmark');
     _mem = _lib.lookupFunction<_MemFnC, _MemFnDart>('bmb_memory_benchmark');
     _free = _lib.lookupFunction<_FreeFnC, _FreeFnDart>('bmb_free_string');
+
+    // Telemetria rápida do sistema (quando disponível)
+    try {
+      _sysCpu = _lib.lookupFunction<Double Function(), double Function()>('bmb_sys_cpu_usage');
+    } catch (_) {
+      _sysCpu = null;
+    }
+
+    try {
+      _sysMem = _lib.lookupFunction<_StrFnC, _StrFnDart>('bmb_sys_memory_info');
+    } catch (_) {
+      _sysMem = null;
+    }
   }
 
   static NativeCore? _instance;
@@ -102,9 +115,26 @@ class NativeCore {
   late final _CpuFnDart _cpu;
   late final _MemFnDart _mem;
   late final _FreeFnDart _free;
+  late final double Function()? _sysCpu;
+  late final _StrFnDart? _sysMem;
 
   String get version {
     final ptr = _version();
+    try {
+      return ptr.toDartString();
+    } finally {
+      _free(ptr);
+    }
+  }
+
+  /// Uso instantâneo de CPU medido diretamente pelo kernel (0.0 a 100.0).
+  double get sysCpuUsage => _sysCpu?.call() ?? 0.0;
+
+  /// Retorna JSON de memória instantânea: `total_bytes`, `available_bytes`, `used_bytes`, `load_percent`.
+  String? get sysMemoryInfo {
+    final fn = _sysMem;
+    if (fn == null) return null;
+    final ptr = fn();
     try {
       return ptr.toDartString();
     } finally {

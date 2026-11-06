@@ -81,6 +81,130 @@ pub extern "C" fn bmb_version() -> *mut c_char {
     to_c_string(format!("\"{}\"", env!("CARGO_PKG_VERSION")))
 }
 
+#[cfg(target_os = "windows")]
+mod windows_telemetry {
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::mem::zeroed;
+
+    #[repr(C)]
+    #[derive(Copy, Clone, Default)]
+    struct FileTime {
+        dw_low_date_time: u32,
+        dw_high_date_time: u32,
+    }
+
+    impl FileTime {
+        fn to_u64(&self) -> u64 {
+            ((self.dw_high_date_time as u64) << 32) | (self.dw_low_date_time as u64)
+        }
+    }
+
+    #[repr(C)]
+    struct MemoryStatusEx {
+        dw_length: u32,
+        dw_memory_load: u32,
+        ull_total_phys: u64,
+        ull_avail_phys: u64,
+        ull_total_page_file: u64,
+        ull_avail_page_file: u64,
+        ull_total_virtual: u64,
+        ull_avail_virtual: u64,
+        ull_avail_extended_virtual: u64,
+    }
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GetSystemTimes(
+            lp_idle_time: *mut FileTime,
+            lp_kernel_time: *mut FileTime,
+            lp_user_time: *mut FileTime,
+        ) -> i32;
+
+        fn GlobalMemoryStatusEx(lp_buffer: *mut MemoryStatusEx) -> i32;
+    }
+
+    static PREV_IDLE: AtomicU64 = AtomicU64::new(0);
+    static PREV_KERNEL: AtomicU64 = AtomicU64::new(0);
+    static PREV_USER: AtomicU64 = AtomicU64::new(0);
+
+    pub fn get_cpu_percent() -> f64 {
+        unsafe {
+            let mut idle = FileTime::default();
+            let mut kernel = FileTime::default();
+            let mut user = FileTime::default();
+            if GetSystemTimes(&mut idle, &mut kernel, &mut user) == 0 {
+                return 0.0;
+            }
+
+            let cur_idle = idle.to_u64();
+            let cur_kernel = kernel.to_u64();
+            let cur_user = user.to_u64();
+
+            let prev_idle = PREV_IDLE.swap(cur_idle, Ordering::Relaxed);
+            let prev_kernel = PREV_KERNEL.swap(cur_kernel, Ordering::Relaxed);
+            let prev_user = PREV_USER.swap(cur_user, Ordering::Relaxed);
+
+            if prev_kernel == 0 && prev_user == 0 {
+                return 0.0;
+            }
+
+            let diff_idle = cur_idle.saturating_sub(prev_idle);
+            let diff_kernel = cur_kernel.saturating_sub(prev_kernel);
+            let diff_user = cur_user.saturating_sub(prev_user);
+
+            let total_sys = diff_kernel + diff_user;
+            if total_sys == 0 {
+                return 0.0;
+            }
+
+            let busy = total_sys.saturating_sub(diff_idle);
+            let pct = (busy as f64 / total_sys as f64) * 100.0;
+            pct.clamp(0.0, 100.0)
+        }
+    }
+
+    pub fn get_memory_info() -> Option<(u64, u64, u32)> {
+        unsafe {
+            let mut status = zeroed::<MemoryStatusEx>();
+            status.dw_length = std::mem::size_of::<MemoryStatusEx>() as u32;
+            if GlobalMemoryStatusEx(&mut status) == 0 {
+                return None;
+            }
+            Some((status.ull_total_phys, status.ull_avail_phys, status.dw_memory_load))
+        }
+    }
+}
+
+/// Mede o uso instantâneo de CPU no Windows (0.0 a 100.0) via Win32 GetSystemTimes.
+#[no_mangle]
+pub extern "C" fn bmb_sys_cpu_usage() -> f64 {
+    #[cfg(target_os = "windows")]
+    {
+        windows_telemetry::get_cpu_percent()
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        0.0
+    }
+}
+
+/// Retorna status de memória RAM no Windows em JSON:
+/// `{"total_bytes": u64, "available_bytes": u64, "used_bytes": u64, "load_percent": u32}`
+#[no_mangle]
+pub extern "C" fn bmb_sys_memory_info() -> *mut c_char {
+    #[cfg(target_os = "windows")]
+    {
+        if let Some((total, avail, load)) = windows_telemetry::get_memory_info() {
+            let used = total.saturating_sub(avail);
+            return to_c_string(format!(
+                "{{\"total_bytes\":{},\"available_bytes\":{},\"used_bytes\":{},\"load_percent\":{}}}",
+                total, avail, used, load
+            ));
+        }
+    }
+    to_c_string("{\"total_bytes\":0,\"available_bytes\":0,\"used_bytes\":0,\"load_percent\":0}".to_string())
+}
+
 /// Benchmark de CPU.
 ///
 /// `duration_ms`: duracao da medicao por teste (min. 200 ms).
@@ -242,5 +366,17 @@ mod tests {
         assert!(json.contains("write_gbps"));
         assert!(json.contains("latency_ns"));
         assert!(!json.contains("\"write_gbps\":0.000"));
+    }
+
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn windows_telemetry_returns_valid_data() {
+        let cpu = bmb_sys_cpu_usage();
+        assert!(cpu >= 0.0 && cpu <= 100.0);
+
+        let mem_json = unsafe { take(bmb_sys_memory_info()) };
+        assert!(mem_json.contains("total_bytes"));
+        assert!(mem_json.contains("available_bytes"));
+        assert!(mem_json.contains("used_bytes"));
     }
 }

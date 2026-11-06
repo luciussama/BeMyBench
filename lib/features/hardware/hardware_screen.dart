@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -648,8 +649,9 @@ class _StatusTiles extends StatelessWidget {
         icon: Icons.view_in_ar,
         color: AppColors.violet,
         label: 'GPU',
-        value: gpu?.name.replaceAll('Apple ', '') ?? info.chip.replaceAll('Apple ', ''),
-        trailing: gpu == null ? 'unificada' : (gpu!.unifiedMemory ? 'unificada' : 'dedicada'),
+        value: gpu?.name.replaceAll('Apple ', '') ??
+            (info.gpu.model.isNotEmpty ? info.gpu.model : info.chip.replaceAll('Apple ', '')),
+        trailing: (gpu?.unifiedMemory ?? info.gpu.isUnifiedMemory) ? 'unificada' : 'dedicada',
         progress: null,
       ),
       MetricTile(
@@ -1425,13 +1427,17 @@ class _RealtimeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final benchLabel = Platform.isWindows
+        ? 'Motor em Rust com score próprio (FFI nativo) e FurMark 3D (Direct3D 11)'
+        : 'Motor em Rust com score próprio (FFI nativo) e FurMark 3D Metal';
+
     final items = <(String, String)>[
       ('Núcleos', '${info.cores} threads reais (${info.cpu.performanceCores}P + ${info.cpu.efficiencyCores}E)'),
       ('Memória', '${info.ramTotalLabel} ${info.memory.type} (${info.memory.manufacturer})'),
       if (battery != null)
         ('Bateria', '${battery!.health.toStringAsFixed(1)}% de saúde · ${battery!.cycleCount} ciclos'),
       ('Sensores', 'CPU, RAM e Temperaturas atualizados a cada 2 segundos'),
-      ('Benchmark', 'Motor em Rust com score próprio (FFI nativo) e FurMark 3D Metal'),
+      ('Benchmark', benchLabel),
     ];
 
     return AppPanel(
@@ -1485,12 +1491,22 @@ class _LimitsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const items = <(String, String)>[
-      ('Slots DIMM avulsos', 'Inexistentes em SoC Apple Silicon (memória unificada on-package)'),
-      ('Leitura de SPD de RAM', 'Disponível no Windows via WMI; no Linux requer permissão de root'),
-      ('Smartphones (Android)', 'APIs do sistema isolam o hardware profundo por sandbox SELinux'),
-      ('Limpeza e atualizações', 'Chegam na V1.1 com whitelist e confirmação'),
-    ];
+    final List<(String, String)> items;
+    if (Platform.isWindows) {
+      items = const [
+        ('Slots DIMM modulares', 'Suporte a pentes avulsos em Dual-Channel com leitura de SPD/XMP via WMI'),
+        ('GPU Dedicada & PCIe', 'Comunicação direta via barramento PCIe com memória VRAM dedicada (GDDR6/GDDR7)'),
+        ('Telemetria do Sistema', 'Acesso nativo a contadores de performance do kernel e Win32 em modo de usuário'),
+        ('Limpeza e atualizações', 'Chegam na V1.1 com whitelist e confirmação'),
+      ];
+    } else {
+      items = const [
+        ('Slots DIMM avulsos', 'Inexistentes em SoC Apple Silicon (memória unificada on-package)'),
+        ('Leitura de SPD de RAM', 'Disponível no Windows via WMI; no Linux requer permissão de root'),
+        ('Smartphones (Android)', 'APIs do sistema isolam o hardware profundo por sandbox SELinux'),
+        ('Limpeza e atualizações', 'Chegam na V1.1 com whitelist e confirmação'),
+      ];
+    }
 
     return AppPanel(
       child: Column(

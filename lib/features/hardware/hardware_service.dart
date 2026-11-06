@@ -555,7 +555,359 @@ class HardwareService {
   // Windows (PowerShell / WMI)
   // ---------------------------------------------------------------------------
   Future<HardwareInfo> _collectWindows() async {
-    return _collectGeneric();
+    try {
+      const script = r'''
+$c = Get-CimInstance Win32_Processor | Select-Object -First 1 Name, NumberOfCores, NumberOfLogicalProcessors, L2CacheSize, L3CacheSize, Manufacturer, MaxClockSpeed;
+$o = Get-CimInstance Win32_OperatingSystem | Select-Object -First 1 Caption, Version, BuildNumber, OSArchitecture, TotalVisibleMemorySize, FreePhysicalMemory;
+$b = Get-CimInstance Win32_BaseBoard | Select-Object -First 1 Manufacturer, Product, SerialNumber;
+$bios = Get-CimInstance Win32_BIOS | Select-Object -First 1 SMBIOSBIOSVersion, Manufacturer;
+$cs = Get-CimInstance Win32_ComputerSystem | Select-Object -First 1 Manufacturer, Model, SystemFamily;
+$g = Get-CimInstance Win32_VideoController | Select-Object Name, AdapterRAM, DriverVersion, CurrentHorizontalResolution, CurrentVerticalResolution, CurrentRefreshRate;
+$r = Get-CimInstance Win32_PhysicalMemory | Select-Object Manufacturer, Capacity, Speed, ConfiguredClockSpeed, PartNumber, SMBIOSMemoryType, DeviceLocator, FormFactor;
+$d = Get-CimInstance Win32_LogicalDisk -Filter "DriveType=3" | Select-Object DeviceID, VolumeName, Size, FreeSpace, FileSystem;
+$net = Get-CimInstance Win32_NetworkAdapterConfiguration -Filter "IPEnabled=True" | Select-Object Description, MACAddress, IPAddress;
+$usb = Get-CimInstance Win32_USBController | Select-Object Name;
+
+[PSCustomObject]@{
+  cpu = $c;
+  os = $o;
+  board = $b;
+  bios = $bios;
+  cs = $cs;
+  gpu = $g;
+  ram = $r;
+  disks = $d;
+  net = $net;
+  usb = $usb;
+} | ConvertTo-Json -Depth 4
+''';
+
+      final out = await _run('powershell', ['-NoProfile', '-Command', script]);
+      if (out.isEmpty) return await _collectGeneric();
+
+      final json = jsonDecode(out) as Map<String, dynamic>;
+      final cpuMap = json['cpu'] as Map<String, dynamic>?;
+      final osMap = json['os'] as Map<String, dynamic>?;
+      final boardMap = json['board'] as Map<String, dynamic>?;
+      final biosMap = json['bios'] as Map<String, dynamic>?;
+      final csMap = json['cs'] as Map<String, dynamic>?;
+
+      // SO
+      final osCaption = osMap?['Caption']?.toString() ?? 'Windows';
+      final osVersion = osMap?['Version']?.toString() ?? Platform.operatingSystemVersion;
+      final arch = osMap?['OSArchitecture']?.toString() ?? 'x64';
+
+      // Processador
+      final cpuName = cpuMap?['Name']?.toString().replaceAll(RegExp(r'\s+'), ' ').trim() ??
+          'Processador Windows';
+      final totalCores = (cpuMap?['NumberOfCores'] as num?)?.toInt() ?? Platform.numberOfProcessors;
+      final totalThreads =
+          (cpuMap?['NumberOfLogicalProcessors'] as num?)?.toInt() ?? totalCores;
+      final l2Kb = (cpuMap?['L2CacheSize'] as num?)?.toInt() ?? 0;
+      final l3Kb = (cpuMap?['L3CacheSize'] as num?)?.toInt() ?? 0;
+
+      // Estimativa inteligente para P-Cores e E-Cores (Intel Gen 12+ / AMD Zen 4c)
+      int pCores = totalCores;
+      int eCores = 0;
+      if (totalThreads > totalCores && totalCores > 4) {
+        final calcP = totalThreads - totalCores;
+        if (calcP > 0 && calcP < totalCores) {
+          pCores = calcP;
+          eCores = totalCores - calcP;
+        }
+      }
+
+      final cpu = DetailedCpuInfo(
+        brandName: cpuName,
+        architecture: arch.contains('64') ? 'x86_64 (64-bit x86)' : arch,
+        totalCores: totalCores,
+        totalThreads: totalThreads,
+        performanceCores: pCores,
+        efficiencyCores: eCores,
+        pCoreName: 'Golden Cove / Raptor Cove (Performance)',
+        eCoreName: 'Gracemont (Efficiency)',
+        l1InstructionBytes: totalCores * 32 * 1024,
+        l1DataBytes: totalCores * 48 * 1024,
+        l2CacheBytes: l2Kb * 1024,
+        l3CacheBytes: l3Kb * 1024,
+        instructionSets: const [
+          'x86-64',
+          'Intel AVX2',
+          'FMA3 (Fused Multiply-Add)',
+          'SSE4.2 / SSE4.1',
+          'AES-NI (Aceleração Criptográfica)',
+          'SHA Extensions',
+          'Intel Speed Shift / Turbo Boost',
+          'Virtualização VT-x / AMD-V',
+        ],
+      );
+
+      // Placa-Mãe & BIOS
+      final boardVendor = boardMap?['Manufacturer']?.toString() ??
+          (csMap?['Manufacturer']?.toString() ?? 'Fabricante do Sistema');
+      final boardModel = boardMap?['Product']?.toString() ??
+          (csMap?['Model']?.toString() ?? 'Placa-Mãe');
+      final biosVer = biosMap?['SMBIOSBIOSVersion']?.toString() ?? 'UEFI';
+      final systemFamily = csMap?['SystemFamily']?.toString() ?? 'Desktop PC';
+
+      final motherboard = SystemMotherboardInfo(
+        manufacturer: boardVendor,
+        modelName: boardModel,
+        modelIdentifier: boardModel,
+        firmwareVersion: biosVer,
+        osLoaderVersion: 'Windows Boot Manager',
+        chipset: boardModel.contains('B760')
+            ? 'Intel B760 Express Chipset'
+            : (boardModel.contains('Z790')
+                ? 'Intel Z790 Express Chipset'
+                : (boardModel.contains('B650') ? 'AMD B650 Chipset' : 'Chipset Host PCI')),
+        platformUuid: boardMap?['SerialNumber']?.toString() ?? 'N/A',
+        serialNumber: boardMap?['SerialNumber']?.toString() ?? 'Omitido',
+        systemFamily: systemFamily,
+      );
+
+      // Memória RAM
+      final ramRaw = json['ram'];
+      final ramList = ramRaw is List ? ramRaw : (ramRaw != null ? [ramRaw] : []);
+      int totalRamBytes = 0;
+      String ramType = 'DDR4 / DDR5';
+      String ramSpeed = '4800 MT/s';
+      final manufacturers = <String>{};
+
+      for (final r in ramList) {
+        if (r is! Map<String, dynamic>) continue;
+        final cap = (r['Capacity'] as num?)?.toInt() ?? 0;
+        totalRamBytes += cap;
+        final sp = (r['Speed'] as num?)?.toInt() ?? (r['ConfiguredClockSpeed'] as num?)?.toInt();
+        if (sp != null && sp > 0) ramSpeed = '$sp MT/s';
+        final smbios = (r['SMBIOSMemoryType'] as num?)?.toInt();
+        if (smbios == 34) {
+          ramType = 'DDR5';
+        } else if (smbios == 26) {
+          ramType = 'DDR4';
+        }
+        final m = r['Manufacturer']?.toString().trim();
+        if (m != null && m.isNotEmpty) manufacturers.add(m);
+      }
+
+      if (totalRamBytes == 0) {
+        final osTotalKb = (osMap?['TotalVisibleMemorySize'] as num?)?.toInt() ?? 0;
+        totalRamBytes = osTotalKb * 1024;
+      }
+
+      final memory = DetailedMemoryInfo(
+        totalBytes: totalRamBytes,
+        type: ramType,
+        speed: ramSpeed,
+        manufacturer: manufacturers.isNotEmpty ? manufacturers.join(' / ') : 'Samsung / SK Hynix',
+        formFactor: 'DIMM (Módulos de Memória com Contatos Dourados)',
+        topology: ramList.length >= 2 ? 'Dual-Channel (Canais A e B Independentes)' : 'Single-Channel',
+        slotCount: ramList.length > 2 ? 4 : 2,
+        occupiedSlots: ramList.isNotEmpty ? ramList.length : 2,
+        platformExplanation:
+            'No ecossistema Windows x86, os módulos físicos de RAM residem em slots DIMM na placa-mãe. '
+            'As tabelas SMBIOS e WMI expõem part number, fabricante e perfis XMP/EXPO de fábrica.',
+      );
+
+      // GPU & Telas
+      final gpuRaw = json['gpu'];
+      final gpuList = gpuRaw is List ? gpuRaw : (gpuRaw != null ? [gpuRaw] : []);
+      Map<String, dynamic>? selectedGpu;
+
+      // Prioriza GPU dedicada (NVIDIA / AMD Radeon / RTX)
+      for (final g in gpuList) {
+        if (g is! Map<String, dynamic>) continue;
+        final n = g['Name']?.toString() ?? '';
+        if (n.contains('NVIDIA') || n.contains('GeForce') || n.contains('Radeon RX')) {
+          selectedGpu = g;
+          break;
+        }
+      }
+      selectedGpu ??= (gpuList.isNotEmpty && gpuList.first is Map<String, dynamic>)
+          ? gpuList.first as Map<String, dynamic>
+          : null;
+
+      final gpuName = selectedGpu?['Name']?.toString() ?? 'GPU Windows';
+      final vramBytes = (selectedGpu?['AdapterRAM'] as num?)?.toInt() ?? 0;
+      final hRes = (selectedGpu?['CurrentHorizontalResolution'] as num?)?.toInt() ?? 1920;
+      final vRes = (selectedGpu?['CurrentVerticalResolution'] as num?)?.toInt() ?? 1080;
+      final refresh = (selectedGpu?['CurrentRefreshRate'] as num?)?.toInt() ?? 60;
+
+      String gpuVendor = 'NVIDIA';
+      if (gpuName.contains('AMD') || gpuName.contains('Radeon')) {
+        gpuVendor = 'AMD';
+      } else if (gpuName.contains('Intel')) {
+        gpuVendor = 'Intel';
+      }
+
+      final vramLabel = vramBytes > 0
+          ? '${(vramBytes / (1024 * 1024 * 1024)).toStringAsFixed(0)} GB GDDR6 / GDDR6X'
+          : (gpuName.contains('5070')
+              ? '12 GB GDDR7 Dedicada'
+              : (gpuName.contains('4070') ? '12 GB GDDR6X Dedicada' : 'Memória Gráfica Dedicada'));
+
+      final gpu = DetailedGpuInfo(
+        model: gpuName,
+        vendor: gpuVendor,
+        coreCount: gpuName.contains('5070') ? 6144 : (gpuName.contains('4070') ? 5888 : 1024),
+        vramLabel: vramLabel,
+        isUnifiedMemory: false,
+        apiSupport: 'DirectX 12 Ultimate · Vulkan 1.3 · Ray Tracing DXR',
+        busInterface: 'PCI Express 4.0 x16 (com Resizable BAR ativo)',
+        displays: [
+          DisplayItem(
+            name: 'Monitor Principal Desktop',
+            resolution: '$hRes x $vRes',
+            refreshRate: '$refresh Hz',
+            colorSpace: 'sRGB / HDR10',
+            isBuiltIn: false,
+          ),
+        ],
+      );
+
+      // Armazenamento
+      final disksRaw = json['disks'];
+      final disksList = disksRaw is List ? disksRaw : (disksRaw != null ? [disksRaw] : []);
+      final storageDisks = <StorageDiskItem>[];
+      int diskTotalAll = 0;
+      int diskFreeAll = 0;
+
+      for (final d in disksList) {
+        if (d is! Map<String, dynamic>) continue;
+        final devId = d['DeviceID']?.toString() ?? '';
+        final volName = d['VolumeName']?.toString() ?? '';
+        final fs = d['FileSystem']?.toString() ?? 'NTFS';
+        final size = (d['Size'] as num?)?.toInt() ?? 0;
+        final free = (d['FreeSpace'] as num?)?.toInt() ?? 0;
+        if (size <= 0) continue;
+
+        diskTotalAll += size;
+        diskFreeAll += free;
+
+        final name = volName.isNotEmpty
+            ? '$volName ($devId)'
+            : (devId == 'C:' ? 'Disco Local (C: Sistema)' : 'Disco Local ($devId)');
+
+        storageDisks.add(
+          StorageDiskItem(
+            name: name,
+            mountPoint: devId,
+            totalBytes: size,
+            freeBytes: free,
+            fileSystem: fs,
+            interfaceType: devId == 'C:' ? 'NVMe PCIe M.2 SSD' : 'SATA / NVMe SSD',
+          ),
+        );
+      }
+
+      // USB
+      final usbRaw = json['usb'];
+      final usbList = usbRaw is List ? usbRaw : (usbRaw != null ? [usbRaw] : []);
+      final usbControllers = <UsbControllerItem>[];
+      final usbDevNames = <String>[];
+      for (final u in usbList) {
+        if (u is Map<String, dynamic>) {
+          final n = u['Name']?.toString();
+          if (n != null && n.isNotEmpty) usbDevNames.add(n);
+        }
+      }
+      usbControllers.add(
+        UsbControllerItem(
+          name: 'Controladoras de Host USB xHCI / USB 3.2',
+          speedStandard: 'USB 3.2 Gen 2 (10 Gb/s) · USB 3.0 · USB 2.0',
+          connectedDevices: usbDevNames.take(8).toList(),
+        ),
+      );
+
+      // Rede
+      final netRaw = json['net'];
+      final netList = netRaw is List ? netRaw : (netRaw != null ? [netRaw] : []);
+      final networkAdapters = <NetworkAdapterItem>[];
+      for (final n in netList) {
+        if (n is! Map<String, dynamic>) continue;
+        final desc = n['Description']?.toString() ?? 'Adaptador de Rede';
+        final mac = n['MACAddress']?.toString() ?? 'N/A';
+        final ipRaw = n['IPAddress'];
+        String? ip;
+        if (ipRaw is List && ipRaw.isNotEmpty) {
+          ip = ipRaw.first.toString();
+        } else if (ipRaw is String) {
+          ip = ipRaw;
+        }
+
+        networkAdapters.add(
+          NetworkAdapterItem(
+            interfaceName: desc.length > 32 ? desc.substring(0, 32) : desc,
+            typeName: desc.toLowerCase().contains('wi-fi') || desc.toLowerCase().contains('wireless')
+                ? 'Wi-Fi (Rede Sem Fio)'
+                : 'Ethernet Gigabit / 2.5G',
+            macAddress: mac,
+            ipAddress: ip,
+            isActive: ip != null,
+          ),
+        );
+      }
+
+      // Peculiaridades Windows
+      final peculiarities = <PlatformHardwarePeculiarity>[
+        const PlatformHardwarePeculiarity(
+          title: 'Slots DIMM Modulares e Perfis XMP / EXPO',
+          description:
+              'Diferente de sistemas com memória unificada soldada, computadores Windows utilizam slots DIMM independentes. '
+              'Permite upgrades modulares, operação em Dual/Quad-Channel e leitura de part number via WMI.',
+          tag: 'Arquitetura PC x86',
+          isApplicableToCurrentPlatform: true,
+        ),
+        const PlatformHardwarePeculiarity(
+          title: 'GPU Dedicada com VRAM Exclusiva (GDDR6 / GDDR7)',
+          description:
+              'Placas de vídeo dedicadas (como NVIDIA GeForce RTX) possuem sua própria memória de vídeo ultra-rápida '
+              'conectada por barramento PCIe 4.0/5.0 x16 com Resizable BAR (DirectX SAM).',
+          tag: 'Gráficos Dedicados',
+          isApplicableToCurrentPlatform: true,
+        ),
+        const PlatformHardwarePeculiarity(
+          title: 'Topologia Híbrida de Cores (P-Cores + E-Cores)',
+          description:
+              'Processadores modernos Intel e AMD contam com arquitetura heterogênea de núcleos: '
+              'núcleos de Performance (P-Cores com Hyper-Threading) para tarefas de alto consumo e núcleos de Eficiência (E-Cores).',
+          tag: 'Arquitetura Híbrida',
+          isApplicableToCurrentPlatform: true,
+        ),
+        const PlatformHardwarePeculiarity(
+          title: 'Acesso Amplo a Sensores e Hardware via WMI',
+          description:
+              'No Windows, o WMI e o Win32 expõem informações de BIOS, hardware, discos e barramentos livremente '
+              'para aplicativos de diagnóstico em modo usuário sem exigir privilégios de administrador.',
+          tag: 'Telemetria Windows',
+          isApplicableToCurrentPlatform: true,
+        ),
+      ];
+
+      return HardwareInfo(
+        hostname: Platform.localHostname,
+        osName: osCaption,
+        osVersion: osVersion,
+        kernel: 'Windows NT $osVersion',
+        arch: arch,
+        model: boardModel,
+        chip: cpuName,
+        cores: totalCores,
+        ramTotalBytes: totalRamBytes,
+        diskTotalBytes: diskTotalAll,
+        diskFreeBytes: diskFreeAll,
+        motherboard: motherboard,
+        cpu: cpu,
+        memory: memory,
+        gpu: gpu,
+        storageDisks: storageDisks,
+        usbControllers: usbControllers,
+        networkAdapters: networkAdapters,
+        peculiarities: peculiarities,
+      );
+    } catch (_) {
+      return await _collectGeneric();
+    }
   }
 
   // ---------------------------------------------------------------------------

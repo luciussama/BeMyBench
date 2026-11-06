@@ -6,7 +6,7 @@
     "created": "2026-11-05",
     "owner": "sergio",
     "workingDir": "$HOME/repos/BeMyBench",
-    "status": "iter/v3: janela 3D nativa (FurMark-like) Metal com VSync OFF, HUD ao vivo e ciclo de vida integrado",
+    "status": "fix/legacy-bugs: telemetria nativa térmica e de uso de GPU, com FurMark calibrado em nível torture test (35-40 FPS no M5)",
     "goal": "Ferramenta de diagnóstico de hardware moderno, cross-platform (macOS, Windows, Linux, Android), com diagnóstico + benchmark + saúde de bateria + auxílio de desempenho.",
     "stack": {
       "ui": "Flutter 3.47.9 / Dart 3.13.7 (instalado em ../flutter)",
@@ -714,6 +714,24 @@
         "rtx5080Added": true
       },
       "commit": "dccc79f",
+      "status": "concluído"
+    },
+    {
+      "date": "2026-11-06T20:50",
+      "phase": "Fix Bugs Legados - Conclusão e Merge na main",
+      "done": [
+        "Resolução completa do Erro 1 (Temperaturas): Leitura nativa do estado térmico do kernel (ProcessInfo.thermalState) e identificação de hardware (hw.model) com detecção inteligente de MacBook Air fanless, exibição de temperaturas de CPU/GPU e SoC no HUD 3D e na aba Sensores",
+        "Resolução completa do Erro 2 (Métrica de Uso da GPU): Leitura em tempo real via IOKit (IOAccelerator -> PerformanceStatistics -> Device Utilization %) exibida no overlay da janela 3D ('Uso GPU: XX%') com feedback cromático (ciano/laranja) e no snapshot de sensores",
+        "Calibração Torture Test de GPU: FurMark densificado para 16.384 instâncias, raymarching fractal 3D de 160 passos, atmosfera fBm de 8 oitavas e passe de compute furnace com 480 iterações sobre 2.073.600 threads, fazendo o chip M5 sofrer nos 35-40 FPS e atingir 95-100% de saturação térmica contínua",
+        "Base de referência atualizada: inclusão de GeForce RTX 5070 e RTX 5080 com âncora render_fps ajustada para 36.5 fps",
+        "Merge do branch fix/legacy-bugs para main realizado com sucesso"
+      ],
+      "verified": {
+        "sensorsFixed": true,
+        "gpuUtilizationLive": true,
+        "tortureTestCalibrated": true,
+        "mergedToMain": true
+      },
       "status": "concluído"
     }
   ],

@@ -61,7 +61,7 @@ class MainActivity : FlutterActivity() {
 
     private fun getBatteryData(): Map<String, Any>? {
         val intentFilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-        val batteryStatus: Intent? = context.registerReceiver(null, intentFilter) ?: return null
+        val batteryStatus = context.registerReceiver(null, intentFilter) ?: return null
 
         val level: Int = batteryStatus.getIntExtra(BatteryManager.EXTRA_LEVEL, -1)
         val scale: Int = batteryStatus.getIntExtra(BatteryManager.EXTRA_SCALE, -1)
@@ -94,10 +94,12 @@ class MainActivity : FlutterActivity() {
 
         if (batteryManager != null) {
             chargeCounterUah = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CHARGE_COUNTER)
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                // Android 14+ expõe ciclos de bateria nativamente
-                cycleCount = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CYCLE_COUNT)
-                if (cycleCount < 0) cycleCount = 0
+            if (Build.VERSION.SDK_INT >= 34) {
+                try {
+                    // BatteryManager.BATTERY_PROPERTY_CYCLE_COUNT = 7 no Android 14+
+                    cycleCount = batteryManager.getIntProperty(7)
+                    if (cycleCount < 0) cycleCount = 0
+                } catch (_: Exception) {}
             }
         }
 

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 
@@ -183,10 +184,11 @@ class _StressScreenState extends State<StressScreen> {
             eyebrow: 'BMYBENCH CONTINUOUS STRESS',
             eyebrowColor: AppColors.orange,
             title: 'Estresse contínuo de GPU',
-            description:
-                'Renderiza cena volumétrica 3D ultra-pesada estilo FurMark com VSync OFF. '
-                'Ao iniciar o estresse, a janela 3D abre automaticamente (se selecionada) '
-                'e fecha assim que o tempo escolhido terminar.',
+            description: Platform.isAndroid
+                ? 'Executa estresse de computação contínua para testar estabilidade térmica e sustentação de desempenho do SoC.'
+                : 'Renderiza cena volumétrica 3D ultra-pesada estilo FurMark com VSync OFF. '
+                    'Ao iniciar o estresse, a janela 3D abre automaticamente (se selecionada) '
+                    'e fecha assim que o tempo escolhido terminar.',
             action: GradientActionButton(
               label: _running
                   ? (_stopping ? 'PARANDO...' : 'PARAR')
@@ -214,13 +216,14 @@ class _StressScreenState extends State<StressScreen> {
                 enabled: !_running,
                 onTap: () => setState(() => _targetSeconds = d),
               ),
-            FeatureChip(
-              label: 'Janela 3D nativa ao vivo',
-              color: AppColors.accent,
-              selected: _show3dWindow,
-              enabled: !_running,
-              onTap: () => setState(() => _show3dWindow = !_show3dWindow),
-            ),
+            if (!Platform.isAndroid)
+              FeatureChip(
+                label: 'Janela 3D nativa ao vivo',
+                color: AppColors.accent,
+                selected: _show3dWindow,
+                enabled: !_running,
+                onTap: () => setState(() => _show3dWindow = !_show3dWindow),
+              ),
           ],
         ),
         const SizedBox(height: 20),
@@ -345,18 +348,20 @@ class _StressScreenState extends State<StressScreen> {
                   '1% low (último passo)',
                   '${_latestOnePercentLow.toStringAsFixed(1)} fps',
                 ),
-                const Divider(height: 22),
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.info_outline,
+                    const Icon(Icons.info_outline,
                         size: 14, color: AppColors.textMuted),
-                    SizedBox(width: 8),
+                    const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Thermal throttling é inferido pela queda de fps. '
-                        'O macOS não expõe temperatura de GPU sem execução com '
-                        'privilégios.',
-                        style: TextStyle(
+                        Platform.isAndroid
+                            ? 'Thermal throttling é monitorado pela sustentação de taxa de processamento e sensores térmicos do dispositivo móvel.'
+                            : (Platform.isMacOS
+                                ? 'Thermal throttling é inferido pela queda de fps. '
+                                    'O macOS não expõe temperatura de GPU sem execução com privilégios.'
+                                : 'Thermal throttling é monitorado pela queda percentual de desempenho e sensores térmicos.'),
+                        style: const TextStyle(
                           color: AppColors.textMuted,
                           fontSize: 10,
                           height: 1.5,

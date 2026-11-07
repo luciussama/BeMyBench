@@ -102,7 +102,7 @@ class _HomeShellState extends State<_HomeShell> {
           const NavigationDestination(icon: Icon(Icons.memory), label: 'Hardware'),
           const NavigationDestination(icon: Icon(Icons.thermostat), label: 'Sensores'),
           const NavigationDestination(icon: Icon(Icons.battery_std), label: 'Bateria'),
-          const NavigationDestination(icon: Icon(Icons.speed), label: 'Benchmark'),
+          const NavigationDestination(icon: Icon(Icons.speed), label: 'Bench'),
           const NavigationDestination(icon: Icon(Icons.whatshot), label: 'Estresse'),
           const NavigationDestination(icon: Icon(Icons.history), label: 'Histórico'),
           if (supportsTweaks)

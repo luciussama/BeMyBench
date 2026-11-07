@@ -59,6 +59,7 @@ class SensorsService {
   Future<SensorsSnapshot> collect() async {
     if (Platform.isMacOS) return _collectMac();
     if (Platform.isWindows) return _collectWindows();
+    if (Platform.isAndroid) return _collectAndroid();
     if (Platform.isLinux) return _collectLinux();
     return const SensorsSnapshot(
       cpuUsagePercent: 0,
@@ -85,10 +86,10 @@ class SensorsService {
         final cores = Platform.numberOfProcessors;
         return (sum / cores).clamp(0.0, 100.0);
       }
-      if (Platform.isLinux) {
+      if (Platform.isAndroid || Platform.isLinux) {
         final s = await _run('cat', ['/proc/stat']);
         final first = s.split('\n').first.split(RegExp(r'\s+'));
-        final v = first.skip(1).take(7).map(int.parse).toList();
+        final v = first.skip(1).take(7).map((x) => int.tryParse(x) ?? 0).toList();
         final total = v.fold<int>(0, (a, b) => a + b);
         final idle = v[3] + (v.length > 4 ? v[4] : 0);
         if (total == 0) return 0;
@@ -308,6 +309,55 @@ class SensorsService {
       hasFan: true,
       fanStatus: 'Normal',
       thermalState: 'Nominal',
+    );
+  }
+  Future<SensorsSnapshot> _collectAndroid() async {
+    int total = 0;
+    int used = 0;
+    double? tempC;
+    String thermalState = 'Nominal';
+    String fanStatus = 'Passivo (Câmara de vapor)';
+
+    try {
+      final res = await _channel.invokeMapMethod<String, dynamic>('get_sensors');
+      if (res != null) {
+        total = (res['ram_total'] as num?)?.toInt() ?? 0;
+        used = (res['ram_used'] as num?)?.toInt() ?? 0;
+        tempC = (res['cpu_temp'] as num?)?.toDouble();
+        if (tempC != null && tempC <= 0) tempC = null;
+        fanStatus = res['fan_status'] as String? ?? fanStatus;
+        thermalState = res['thermal_state'] as String? ?? thermalState;
+      }
+    } catch (_) {}
+
+    // Fallback de memória via /proc/meminfo caso canal nativo não responda
+    if (total == 0) {
+      try {
+        final mem = await _run('cat', ['/proc/meminfo']);
+        int kb(String key) {
+          final m = RegExp('$key:\\s+(\\d+)').firstMatch(mem);
+          return int.tryParse(m?.group(1) ?? '0') ?? 0;
+        }
+
+        total = kb('MemTotal') * 1024;
+        final avail = kb('MemAvailable') * 1024;
+        used = total > avail ? total - avail : 0;
+      } catch (_) {}
+    }
+
+    final cpu = await cpuPercentQuick();
+
+    return SensorsSnapshot(
+      cpuUsagePercent: cpu,
+      ramUsedBytes: used,
+      ramTotalBytes: total,
+      temperatureC: tempC,
+      cpuTemperatureC: tempC,
+      gpuTemperatureC: tempC,
+      fanRpm: null,
+      hasFan: false,
+      fanStatus: fanStatus,
+      thermalState: thermalState,
     );
   }
 }

@@ -252,9 +252,8 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
             title: 'Benchmark de hardware',
             description:
                 'Executa os testes selecionados em sequência, medindo CPU, memória, disco '
-                'e GPU (compute + renderização Metal off-screen). O resultado é salvo '
-                'automaticamente no Histórico. O gráfico abaixo mostra a atividade real '
-                'da CPU.',
+                '${Platform.isMacOS ? "e GPU (compute + renderização Metal off-screen)" : (Platform.isAndroid ? "e aceleradores do dispositivo" : "e subsistemas de hardware")}. '
+                'O resultado é salvo automaticamente no Histórico. O gráfico abaixo mostra a atividade real da CPU.',
             action: GradientActionButton(
               label: _running ? 'EXECUTANDO...' : 'INICIAR TESTES',
               icon: _running ? Icons.hourglass_top : Icons.play_arrow,
@@ -308,7 +307,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
               enabled: !_running && GpuBenchmarkService.isSupported,
               onTap: () => _toggle('gpu_render'),
             ),
-            if (GpuBenchmarkService.isSupported)
+            if (GpuBenchmarkService.isSupported && !Platform.isAndroid)
               FeatureChip(
                 label: 'Janela 3D (Ao Vivo)',
                 color: AppColors.orange,

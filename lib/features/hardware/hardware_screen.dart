@@ -1427,9 +1427,19 @@ class _RealtimeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final benchLabel = Platform.isWindows
-        ? 'Motor em Rust com score próprio (FFI nativo) e FurMark 3D (Direct3D 11)'
-        : 'Motor em Rust com score próprio (FFI nativo) e FurMark 3D Metal';
+    final String benchLabel;
+    if (Platform.isWindows) {
+      benchLabel =
+          'Motor em Rust com score próprio (FFI nativo) e FurMark 3D (Direct3D 11)';
+    } else if (Platform.isAndroid) {
+      benchLabel =
+          'Motor em Rust com score próprio (FFI nativo) e testes multithread';
+    } else if (Platform.isLinux) {
+      benchLabel = 'Motor em Rust com score próprio (FFI nativo) e Vulkan';
+    } else {
+      benchLabel =
+          'Motor em Rust com score próprio (FFI nativo) e FurMark 3D Metal';
+    }
 
     final items = <(String, String)>[
       ('Núcleos', '${info.cores} threads reais (${info.cpu.performanceCores}P + ${info.cpu.efficiencyCores}E)'),
@@ -1497,6 +1507,13 @@ class _LimitsCard extends StatelessWidget {
         ('Slots DIMM modulares', 'Suporte a pentes avulsos em Dual-Channel com leitura de SPD/XMP via WMI'),
         ('GPU Dedicada & PCIe', 'Comunicação direta via barramento PCIe com memória VRAM dedicada (GDDR6/GDDR7)'),
         ('Telemetria do Sistema', 'Acesso nativo a contadores de performance do kernel e Win32 em modo de usuário'),
+        ('Limpeza e atualizações', 'Chegam na V1.1 com whitelist e confirmação'),
+      ];
+    } else if (Platform.isAndroid) {
+      items = const [
+        ('Memória PoP / LPDDR5X', 'Memória integrada em sanduíche (Package-on-Package) sobre o SoC'),
+        ('Segurança SELinux', 'Isolamento rigoroso por processo; acesso a hardware via APIs Android'),
+        ('Arrefecimento Térmico', 'Dissipação passiva via câmara de vapor (vapor chamber) e frame metálico'),
         ('Limpeza e atualizações', 'Chegam na V1.1 com whitelist e confirmação'),
       ];
     } else {

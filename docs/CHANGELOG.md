@@ -6,6 +6,30 @@ Todas as decisões técnicas, implementações de funcionalidades, correções d
 
 ## [Não lançado] — 2026-11-11
 
+### Adicionado
+* **Sensores granulares em todas as plataformas:**
+  * **Temperaturas de CPU e GPU separadas**, cada uma com a origem exibida na UI (`ACPI`, `nvidia-smi`, `sensor`/hwmon, `zona térmica`, `bateria` ou `estimado` quando é modelo térmico). No Android a GPU deixa de herdar a temperatura da bateria: sem zona térmica dedicada, o valor é `N/A` em vez de um número enganoso.
+  * **Quadro "Utilização da CPU por núcleo"** (`CpuCoresPanel`): um cartão por thread lógica com percentual e barra, destaque do núcleo mais carregado e resumo (média, pico `N#`, ociosos e saturados).
+  * **Carga por núcleo real** via `NtQuerySystemInformation` (Windows/Rust), `host_processor_info` (macOS/Swift), `/proc/stat` (Linux) e `/proc/stat` no canal nativo do Android.
+  * **Fallback honesto no Android 12+:** o SO bloqueia `/proc/stat` para apps (SELinux). Nesses aparelhos o painel passa a exibir a **frequência real por núcleo** (`/sys/devices/system/cpu/cpu*/cpufreq/scaling_cur_freq`), claramente rotulada como frequência; a carga agregada aparece como `N/A` em vez de `0%`.
+  * **Pressão térmica (`thermal headroom`)** do Android 10+ exposta no cartão de refrigeração.
+  * **Temperaturas reais no Linux** via `/sys/class/hwmon` (coretemp/k10temp/amdgpu/nouveau/i915) e `/sys/class/thermal`, com separação CPU/GPU.
+  * **Windows:** temperatura da CPU pela zona térmica ACPI (PDH, sem exigir administrador) e da GPU pelo driver (`nvidia-smi`); o modelo térmico calibrado só permanece como fallback rotulado.
+  * `SensorsSnapshot` ganhou `perCoreUsage`, `perCoreFrequencyMhz`, `perCoreFrequencyMaxMhz`, `cpuUsageAvailable`, `thermalHeadroom`, `cpuTempSource` e `gpuTempSource`; `CpuTicks`/`CpuTimes` foram extraídos para parsing testável de `/proc/stat` (com cálculo por diferença entre amostras, corrigindo a média-desde-o-boot).
+* **CI:** o workflow agora roda também em pushes para branches `fix/**` e `iter/**`, e ganhou o job `Build Android APK (debug)` para validar a compilação do código nativo Kotlin.
+
+### Alterado
+* A tela de Sensores passou de 4 para 5 cartões (Carga da CPU, RAM, Temp. CPU, Temp. GPU, Refrigeração) e ganhou o painel por núcleo entre os cartões e os gráficos.
+
+### Testes
+* `test/sensors_granular_test.dart`: parsing de `/proc/stat`, cálculo de taxa entre amostras, agregados do snapshot, painel em modo carga, modo frequência e estado vazio.
+* `integration_test/sensors_granular_test.dart`: valida no dispositivo real as temperaturas separadas (com origem) e a leitura por núcleo, aceitando carga ou frequência conforme a plataforma.
+* `test/sensors_probe_test.dart`: sonda manual que imprime as leituras reais da máquina.
+
+---
+
+## [Não lançado] — 2026-11-11 (Android GPU)
+
 ### Corrigido
 * **Benchmark de vídeo (GPU) e estresse de vídeo no Android:** os testes não existiam na plataforma — o canal `bemybench/gpu` só tinha implementação em Swift (macOS) e C++/D3D11 (Windows), e `GpuBenchmarkService.isSupported` retornava `false` no Android. O chip de GPU aparecia como "em breve" e a visualização 3D não abria.
 

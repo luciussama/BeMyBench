@@ -29,6 +29,23 @@ class NativeCore {
     } catch (_) {
       _sysMem = null;
     }
+
+    // Telemetria granular (núcleos individuais e temperatura da zona ACPI)
+    try {
+      _sysCpuPerCore =
+          _lib.lookupFunction<_StrFnC, _StrFnDart>('bmb_sys_cpu_per_core');
+    } catch (_) {
+      _sysCpuPerCore = null;
+    }
+
+    try {
+      _sysCpuTemp =
+          _lib.lookupFunction<Double Function(), double Function()>(
+        'bmb_sys_cpu_temp_c',
+      );
+    } catch (_) {
+      _sysCpuTemp = null;
+    }
   }
 
   static NativeCore? _instance;
@@ -117,6 +134,8 @@ class NativeCore {
   late final _FreeFnDart _free;
   late final double Function()? _sysCpu;
   late final _StrFnDart? _sysMem;
+  late final _StrFnDart? _sysCpuPerCore;
+  late final double Function()? _sysCpuTemp;
 
   String get version {
     final ptr = _version();
@@ -140,6 +159,41 @@ class NativeCore {
     } finally {
       _free(ptr);
     }
+  }
+
+  /// Carga instantânea por núcleo lógico (0.0 a 100.0).
+  ///
+  /// Vazio quando a plataforma não expõe a leitura nativa ou na primeira
+  /// amostra (a taxa só existe após duas leituras).
+  List<double> get sysCpuPerCore {
+    final fn = _sysCpuPerCore;
+    if (fn == null) return const [];
+    final ptr = fn();
+    try {
+      final json = ptr.toDartString();
+      final start = json.indexOf('[');
+      final end = json.lastIndexOf(']');
+      if (start < 0 || end <= start) return const [];
+      final body = json.substring(start + 1, end).trim();
+      if (body.isEmpty) return const [];
+      return body
+          .split(',')
+          .map((part) => double.tryParse(part.trim()) ?? 0)
+          .toList(growable: false);
+    } catch (_) {
+      return const [];
+    } finally {
+      _free(ptr);
+    }
+  }
+
+  /// Temperatura da zona térmica ACPI da CPU em °C, ou `null` quando ausente.
+  double? get sysCpuTempC {
+    final fn = _sysCpuTemp;
+    if (fn == null) return null;
+    final value = fn();
+    if (value.isNaN || value <= 0) return null;
+    return value;
   }
 
   String runCpu({required int durationMs, required int threads}) {

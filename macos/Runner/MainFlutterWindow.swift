@@ -1,4 +1,5 @@
 import Cocoa
+import Darwin
 import FlutterMacOS
 import Metal
 import MetalKit
@@ -106,6 +107,10 @@ class MainFlutterWindow: NSWindow {
         let gpuActive = args?["gpu_active"] as? Bool ?? false
         let data = NativeSensors.shared.collect(cpuUsagePercent: cpuUsage, gpuActive: gpuActive)
         result(data)
+      case "get_cpu_cores":
+        // Carga por núcleo lógico via host_processor_info (API pública do kernel).
+        let loads = NativeSensors.shared.cpuLoadPerCore()
+        result(["core_count": loads.count, "loads": loads])
       default:
         result(FlutterMethodNotImplemented)
       }
@@ -167,6 +172,64 @@ final class NativeSensors {
   private var lastGpuTemp: Double = 39.5
   private var lastUpdateNs: UInt64 = 0
 
+  // Amostra anterior por núcleo lógico: (idle, total) em ticks do kernel.
+  private var previousCoreTicks: [(idle: UInt32, total: UInt32)] = []
+
+  /// Carga por núcleo lógico (0-100) via `host_processor_info`.
+  ///
+  /// Devolve vazio na primeira chamada (a taxa precisa de duas amostras) ou
+  /// quando o kernel nega a leitura.
+  func cpuLoadPerCore() -> [Double] {
+    var cpuCount: natural_t = 0
+    var infoPointer: processor_info_array_t?
+    var infoCount: mach_msg_type_number_t = 0
+
+    let status = host_processor_info(
+      mach_host_self(),
+      PROCESSOR_CPU_LOAD_INFO,
+      &cpuCount,
+      &infoPointer,
+      &infoCount
+    )
+    guard status == KERN_SUCCESS, let info = infoPointer else { return [] }
+
+    let count = Int(cpuCount)
+    let states = Int(CPU_STATE_MAX)
+    var current = [(idle: UInt32, total: UInt32)]()
+    current.reserveCapacity(count)
+
+    for core in 0..<count {
+      let base = core * states
+      let user = UInt32(bitPattern: info[base + Int(CPU_STATE_USER)])
+      let system = UInt32(bitPattern: info[base + Int(CPU_STATE_SYSTEM)])
+      let idle = UInt32(bitPattern: info[base + Int(CPU_STATE_IDLE)])
+      let nice = UInt32(bitPattern: info[base + Int(CPU_STATE_NICE)])
+      current.append((idle: idle, total: user &+ system &+ idle &+ nice))
+    }
+
+    // Libera o buffer alocado pelo kernel.
+    let size = vm_size_t(infoCount) * vm_size_t(MemoryLayout<integer_t>.stride)
+    vm_deallocate(mach_task_self_, vm_address_t(UInt(bitPattern: info)), size)
+
+    let previous = previousCoreTicks
+    previousCoreTicks = current
+    guard previous.count == count else { return [] }
+
+    var loads = [Double]()
+    loads.reserveCapacity(count)
+    for core in 0..<count {
+      let deltaTotal = Int64(current[core].total) - Int64(previous[core].total)
+      let deltaIdle = Int64(current[core].idle) - Int64(previous[core].idle)
+      guard deltaTotal > 0 else {
+        loads.append(0)
+        continue
+      }
+      let busy = max(0, deltaTotal - deltaIdle)
+      loads.append(min(100.0, max(0.0, Double(busy) / Double(deltaTotal) * 100.0)))
+    }
+    return loads
+  }
+
   func collect(cpuUsagePercent: Double = 0.0, gpuActive: Bool = false) -> [String: Any] {
     let nowNs = DispatchTime.now().uptimeNanoseconds
     let dt = lastUpdateNs == 0 ? 1.0 : Double(nowNs - lastUpdateNs) / 1_000_000_000.0
@@ -213,6 +276,10 @@ final class NativeSensors {
       "cpu_temp": (lastCpuTemp * 10).rounded() / 10.0,
       "gpu_temp": (lastGpuTemp * 10).rounded() / 10.0,
       "soc_temp": (((lastCpuTemp + lastGpuTemp) / 2.0) * 10).rounded() / 10.0,
+      // O SMC/IOHID não é acessível sem privilégios: estes valores vêm de um
+      // modelo térmico calibrado, não de um sensor, e a UI informa isso.
+      "cpu_temp_source": "modelo",
+      "gpu_temp_source": "modelo",
       "gpu_usage": gpuUsage,
       "thermal_state": stateString,
       "has_fan": !fanless,

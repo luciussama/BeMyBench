@@ -27,6 +27,8 @@ O BMyBench conta com 7 módulos principais organizados na barra de navegação s
 
 2. **Sensores (Monitoramento Térmico e de Carga):**
    * Leitura contínua a cada 2 segundos de carga de CPU, uso de RAM, temperaturas e ventoinhas (quando expostas pela plataforma).
+   * **Temperaturas separadas de CPU e GPU**, cada uma com a origem explicitada na interface: sensor real (ACPI/hwmon/zona térmica/nvidia-smi) ou modelo térmico calibrado ("estimado").
+   * **Quadro de carga por núcleo:** um cartão por thread lógica com percentual e barra, resumo (média, pico, núcleos ociosos e saturados) e destaque do núcleo mais carregado. Onde o SO bloqueia a leitura de uso (`/proc/stat` no Android 12+), o painel mostra a **frequência real por núcleo** em vez de inventar percentuais.
 
 3. **Bateria (Saúde e Ciclos):**
    * Diagnóstico aprofundado com % atual, saúde da bateria (% da capacidade de design original), contagem de ciclos, status de carga e estimativa de autonomia.
@@ -107,6 +109,7 @@ BeMyBench/
 | **Fase 0 — Fundação** | ✅ | Estrutura Flutter, 4 plataformas geradas, navegação e tema escuro adaptativo |
 | **Fase 1 — Sistema & Bateria** | ✅ | Coleta de dados reais de sistema e telemetria completa de bateria |
 | **Fase 1 — Sensores** | ✅ | Telemetria contínua de carga de CPU e uso de memória em tempo real |
+| **Sensores Granulares** | ✅ | Temperaturas de CPU e GPU separadas (com origem) e quadro de carga/frequência por núcleo nas 4 plataformas |
 | **Fase 2 — Benchmarks Leves** | ✅ | Benchmarks em Rust de CPU (single/multi), Memória (banda/latência) e Disco |
 | **Fase 2 — GPU Metal HDR** | ✅ | Render HDR off-screen com MSAA 4×, 1.024 cubos e frame pacing (1% low/p99) |
 | **Fase 2 — GPU Direct3D 11** | ✅ | Backend nativo Windows (D3D11) com HUD Direct2D/DirectWrite e VSync desligado |

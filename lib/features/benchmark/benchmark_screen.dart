@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:flutter/material.dart';
 
 import '../../core/native/native_core.dart';
+import '../../core/platform/platform_detector.dart';
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/dashboard.dart';
 import '../history/bench_record.dart';
@@ -195,7 +195,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
           gpuRenderOnePercentLow: _gpuRender?.onePercentLowFps,
           totalScore: _totalScore,
           gpuDevice: _gpuRender?.device ?? _gpuCompute?.device,
-          osLabel: Platform.isMacOS ? 'macOS' : Platform.operatingSystem,
+          osLabel: PlatformDetector.os,
         );
         try {
           await BenchHistoryStore().append(record);
@@ -252,9 +252,9 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
             title: 'Benchmark de hardware',
             description:
                 'Executa os testes selecionados em sequência, medindo CPU, memória, disco '
-                'e GPU (compute + renderização Metal off-screen). O resultado é salvo '
-                'automaticamente no Histórico. O gráfico abaixo mostra a atividade real '
-                'da CPU.',
+                'e GPU (compute + renderização ${GpuBenchmarkService.backendLabel} '
+                'off-screen). O resultado é salvo automaticamente no Histórico. O gráfico '
+                'abaixo mostra a atividade real da CPU.',
             action: GradientActionButton(
               label: _running ? 'EXECUTANDO...' : 'INICIAR TESTES',
               icon: _running ? Icons.hourglass_top : Icons.play_arrow,
@@ -292,8 +292,8 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
             ),
             FeatureChip(
               label: GpuBenchmarkService.isSupported
-                  ? 'GPU compute (Metal)'
-                  : 'GPU compute (em breve)',
+                  ? 'GPU compute (${GpuBenchmarkService.backendLabel})'
+                  : 'GPU compute (indisponível)',
               color: AppColors.violet,
               selected: _selected.contains('gpu'),
               enabled: !_running && GpuBenchmarkService.isSupported,
@@ -302,7 +302,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
             FeatureChip(
               label: GpuBenchmarkService.isSupported
                   ? 'GPU render (jogos)'
-                  : 'GPU render (em breve)',
+                  : 'GPU render (indisponível)',
               color: AppColors.red,
               selected: _selected.contains('gpu_render'),
               enabled: !_running && GpuBenchmarkService.isSupported,
@@ -310,7 +310,7 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
             ),
             if (GpuBenchmarkService.isSupported)
               FeatureChip(
-                label: 'Janela 3D (Ao Vivo)',
+                label: GpuBenchmarkService.liveViewLabel,
                 color: AppColors.orange,
                 selected: _show3dWindow,
                 enabled: !_running,
@@ -519,19 +519,9 @@ class _ResultsPanel extends StatelessWidget {
                 '${gpuRender!.p99FrameMs.toStringAsFixed(2)} ms',
               ),
             ],
-            _row(
-              'GPU render cena',
-              '${gpuRender!.instances} cubos · '
-                  '${gpuRender!.trianglesPerFrame} triângulos',
-            ),
-            if (gpuRender!.msaaSamples > 0)
-              _row(
-                'GPU render pipeline',
-                'MSAA ${gpuRender!.msaaSamples}x · HDR '
-                    '${gpuRender!.hdr ? 'sim' : 'não'} · bloom '
-                    '${gpuRender!.bloom ? 'sim' : 'não'} · '
-                    '${gpuRender!.passes} passes',
-              ),
+            _row('GPU render cena', gpuRender!.sceneLabel),
+            if (gpuRender!.pipelineLabel.isNotEmpty)
+              _row('GPU render pipeline', gpuRender!.pipelineLabel),
             _row(
               'GPU render score',
               gpuRender!.score.toStringAsFixed(0),

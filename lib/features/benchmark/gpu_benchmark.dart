@@ -2,7 +2,8 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 
-/// Informações da GPU expostas pelo backend nativo (Metal no macOS).
+/// Informações da GPU expostas pelo backend nativo (Metal, Direct3D 11 ou
+/// OpenGL ES).
 class GpuInfo {
   final String name;
   final bool unifiedMemory;
@@ -12,6 +13,9 @@ class GpuInfo {
   final int height;
   final bool renderAvailable;
 
+  /// API gráfica reportada pelo driver (ex.: "OpenGL ES 3.2").
+  final String api;
+
   const GpuInfo({
     required this.name,
     required this.unifiedMemory,
@@ -20,6 +24,7 @@ class GpuInfo {
     required this.width,
     required this.height,
     required this.renderAvailable,
+    this.api = '',
   });
 
   factory GpuInfo.fromMap(Map<String, dynamic> map) => GpuInfo(
@@ -32,6 +37,7 @@ class GpuInfo {
         width: (map['width'] as num?)?.toInt() ?? 1920,
         height: (map['height'] as num?)?.toInt() ?? 1080,
         renderAvailable: (map['render_available'] as bool?) ?? false,
+        api: (map['api'] as String?) ?? '',
       );
 }
 
@@ -66,6 +72,9 @@ class GpuBenchResult {
   final double pointOnePercentLowFps;
   final int frameTimeSamples;
 
+  /// Passos de raymarching/shading por pixel (apenas render volumétrico).
+  final int shadingIterations;
+
   const GpuBenchResult({
     this.kind = 'compute',
     required this.device,
@@ -89,11 +98,34 @@ class GpuBenchResult {
     this.onePercentLowFps = 0,
     this.pointOnePercentLowFps = 0,
     this.frameTimeSamples = 0,
+    this.shadingIterations = 0,
   });
 
   bool get isRender => kind == 'render';
 
   bool get hasFrameStats => frameTimeSamples >= 10;
+
+  /// Descrição curta do pipeline gráfico usado no teste de render.
+  ///
+  /// Cada backend expõe só o que realmente executa: no Android, por exemplo,
+  /// não há MSAA nem HDR (OpenGL ES 2.0), mas bloom e os 5 passes existem.
+  String get pipelineLabel {
+    final parts = <String>[];
+    if (msaaSamples > 0) parts.add('MSAA ${msaaSamples}x');
+    if (hdr) parts.add('HDR');
+    if (bloom) parts.add('bloom');
+    if (passes > 0) parts.add('$passes passes');
+    return parts.join(' · ');
+  }
+
+  /// Descrição da cena renderizada (geometria ou raymarching volumétrico).
+  String get sceneLabel {
+    if (instances > 1) {
+      return '$instances cubos · $trianglesPerFrame triângulos';
+    }
+    final steps = shadingIterations > 0 ? '$shadingIterations passos · ' : '';
+    return 'raymarch volumétrico · $steps$trianglesPerFrame triângulos';
+  }
 
   factory GpuBenchResult.fromMap(Map<String, dynamic> map) => GpuBenchResult(
         kind: (map['kind'] as String?) ?? 'compute',
@@ -120,17 +152,41 @@ class GpuBenchResult {
         pointOnePercentLowFps:
             (map['point_one_percent_low_fps'] as num?)?.toDouble() ?? 0,
         frameTimeSamples: (map['frame_time_samples'] as num?)?.toInt() ?? 0,
+        shadingIterations: (map['shading_iterations'] as num?)?.toInt() ?? 0,
       );
 }
 
 /// Serviço que conversa com o backend nativo de GPU.
 ///
-/// No macOS o backend é Metal (`GpuBenchmark.swift`). Windows/Linux/Android
-/// entram nas próximas fases reaproveitando o mesmo contrato de método.
+/// Cada plataforma implementa o mesmo contrato de método no canal
+/// `bemybench/gpu`:
+/// - macOS: Metal (`GpuBenchmark.swift`)
+/// - Windows: Direct3D 11 (`gpu_benchmark.cpp`)
+/// - Android: OpenGL ES 2.0 (`GpuBenchmarkChannel.kt`)
 class GpuBenchmarkService {
   static const MethodChannel _channel = MethodChannel('bemybench/gpu');
 
-  static bool get isSupported => Platform.isMacOS || Platform.isWindows;
+  static bool get isSupported =>
+      Platform.isMacOS || Platform.isWindows || Platform.isAndroid;
+
+  /// API gráfica nativa usada na plataforma atual.
+  static String get backendLabel {
+    if (Platform.isMacOS) return 'Metal';
+    if (Platform.isWindows) return 'Direct3D 11';
+    if (Platform.isAndroid) return 'OpenGL ES';
+    return 'GPU';
+  }
+
+  /// Nome do recurso de visualização 3D ao vivo em cada plataforma.
+  ///
+  /// No desktop é uma janela flutuante independente; no Android é um overlay
+  /// em tela cheia com HUD nativo.
+  static String get liveViewLabel => Platform.isAndroid
+      ? 'Visualização 3D (tela cheia)'
+      : 'Janela 3D (Ao Vivo)';
+
+  /// Texto de indisponibilidade usado nos chips quando não há backend.
+  static String get unavailableLabel => 'GPU (indisponível)';
 
   Future<GpuInfo?> info() async {
     if (!isSupported) return null;
@@ -148,7 +204,8 @@ class GpuBenchmarkService {
   Future<GpuBenchResult> run({int durationMs = 1500}) async {
     if (!isSupported) {
       throw UnsupportedError(
-        'O benchmark de GPU está disponível apenas no macOS e Windows nesta versão.',
+        'O benchmark de GPU está disponível no macOS, Windows e Android '
+        'nesta versão.',
       );
     }
     final map = await _channel.invokeMapMethod<String, dynamic>(
@@ -165,7 +222,8 @@ class GpuBenchmarkService {
   Future<GpuBenchResult> runRender({int durationMs = 1500}) async {
     if (!isSupported) {
       throw UnsupportedError(
-        'O benchmark de GPU está disponível apenas no macOS e Windows nesta versão.',
+        'O benchmark de GPU está disponível no macOS, Windows e Android '
+        'nesta versão.',
       );
     }
     final map = await _channel.invokeMapMethod<String, dynamic>(
@@ -178,9 +236,14 @@ class GpuBenchmarkService {
     return GpuBenchResult.fromMap(map);
   }
 
-  /// Abre a janela 3D nativa flutuante (Metal / FurMark-like) com VSync desligado e HUD.
+  /// Abre a visualização 3D nativa ao vivo com HUD.
   ///
-  /// [mode]: 'benchmark' (15s com score final) ou 'stress' (estresse contínuo).
+  /// No macOS e no Windows é uma janela flutuante com VSync desligado. No
+  /// Android é um overlay em tela cheia (GLSurfaceView) com HUD nativo, que
+  /// renderiza a mesma cena do benchmark em 1920x1080 internos.
+  ///
+  /// [mode]: 'benchmark' (abre só durante os testes de GPU) ou 'stress'
+  /// (estresse contínuo).
   Future<bool> open3dWindow({String mode = 'stress'}) async {
     if (!isSupported) return false;
     try {

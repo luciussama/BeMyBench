@@ -5,7 +5,8 @@ import 'package:integration_test/integration_test.dart';
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
-  testWidgets('canal Metal responde info e run', (tester) async {
+  testWidgets('canal nativo de GPU responde info, compute e render',
+      (tester) async {
     final service = GpuBenchmarkService();
 
     final info = await service.info();

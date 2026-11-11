@@ -1,5 +1,17 @@
 name: Build & Release Multi-Platform Packages
 
+# Gera os pacotes das 4 plataformas no GitHub Actions e publica uma Release
+# com os binários anexados.
+#
+# - Push na main: usa a versão do pubspec.yaml (ex.: 1.2.0 -> tag v1.2.0) e
+#   publica/atualiza a release dessa versão.
+# - Push de tag v*: usa a própria tag.
+# - Execução manual: permite informar outra tag e forçar recompilação.
+#
+# O fluxo cria a release como RASCUNHO, os jobs de build anexam os artefatos e
+# só no final um job de publicação a torna pública (make_latest). Assim nunca
+# fica uma release pública pela metade.
+
 on:
   push:
     branches:
@@ -9,53 +21,98 @@ on:
   workflow_dispatch:
     inputs:
       version_tag:
-        description: 'Tag da Versão (ex: v1.1.1)'
-        required: true
-        default: 'v1.1.1'
+        description: 'Tag da versão (ex.: v1.2.0). Vazio = usa a versão do pubspec.yaml'
+        required: false
+        default: ''
+      force:
+        description: 'Recompilar mesmo se a release já estiver publicada'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  FLUTTER_VERSION: '3.47.9'
+
 jobs:
   # ===========================================================================
-  # 1. CREATE RELEASE: Cria imediatamente a Release no GitHub
+  # 1. PREPARE: resolve a versão, cria/atualiza a release em rascunho
   # ===========================================================================
-  create-release:
-    name: Criar Release no GitHub
+  prepare:
+    name: Preparar versão e rascunho da release
     runs-on: ubuntu-latest
     outputs:
-      release_tag: ${{ steps.tag_step.outputs.RELEASE_TAG }}
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+      skip: ${{ steps.version.outputs.skip }}
     steps:
       - name: Checkout repositório
         uses: actions/checkout@v4
 
-      - name: Determinar Tag da Release
-        id: tag_step
+      - name: Determinar versão e estado da release
+        id: version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "RELEASE_TAG=${{ github.event.inputs.version_tag }}" >> $GITHUB_OUTPUT
-          elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
-            echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          set -euo pipefail
+
+          MANIFEST_VERSION="$(grep -m1 '^version:' pubspec.yaml | sed 's/^version:[[:space:]]*//' | cut -d'+' -f1 | tr -d '[:space:]')"
+          INPUT_TAG="${{ github.event.inputs.version_tag }}"
+          FORCE="${{ github.event.inputs.force }}"
+
+          if [ "${GITHUB_REF}" = "refs/heads/main" ] && [ -z "${INPUT_TAG}" ]; then
+            VERSION="${MANIFEST_VERSION}"
+            TAG="v${VERSION}"
+          elif [ -n "${INPUT_TAG}" ]; then
+            TAG="${INPUT_TAG}"
+            VERSION="${TAG#v}"
           else
-            echo "RELEASE_TAG=v1.1.1" >> $GITHUB_OUTPUT
+            TAG="${GITHUB_REF#refs/tags/}"
+            VERSION="${TAG#v}"
           fi
 
-      - name: Criar Release Pública Inicial
+          if [ "${VERSION}" != "${MANIFEST_VERSION}" ]; then
+            echo "::warning::Versão da release (${VERSION}) difere do pubspec.yaml (${MANIFEST_VERSION})."
+          fi
+
+          SKIP="false"
+          if [ "${FORCE}" != "true" ] && gh release view "${TAG}" --json isDraft >/dev/null 2>&1; then
+            IS_DRAFT="$(gh release view "${TAG}" --json isDraft --jq '.isDraft')"
+            if [ "${IS_DRAFT}" = "false" ]; then
+              echo "::notice::A release ${TAG} já está publicada; nada a fazer (use force=true para recompilar)."
+              SKIP="true"
+            fi
+          fi
+
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+          echo "skip=${SKIP}" >> "$GITHUB_OUTPUT"
+          echo "Versão: ${VERSION} | Tag: ${TAG} | skip=${SKIP}"
+
+      - name: Criar rascunho da release
+        if: steps.version.outputs.skip != 'true'
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: ${{ steps.tag_step.outputs.RELEASE_TAG }}
-          name: "BMyBench ${{ steps.tag_step.outputs.RELEASE_TAG }} — Release Multi-Plataforma"
-          draft: false
+          tag_name: ${{ steps.version.outputs.tag }}
+          name: "BMyBench ${{ steps.version.outputs.tag }} — Pacotes Multi-Plataforma"
+          draft: true
           prerelease: false
           generate_release_notes: true
+          make_latest: false
 
   # ===========================================================================
-  # 2. ANDROID: Compilação do Rust Core (NDK) e Upload do APK na Release
+  # 2. ANDROID: Rust core (NDK) + APK
   # ===========================================================================
   build-android:
-    name: Build Android APK
-    needs: [create-release]
+    name: Android APK
+    needs: [prepare]
+    if: needs.prepare.outputs.skip != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repositório
@@ -70,7 +127,7 @@ jobs:
       - name: Configurar Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Adicionar Targets Rust para Android
+      - name: Adicionar targets Rust para Android
         run: rustup target add aarch64-linux-android x86_64-linux-android armv7-linux-androideabi
 
       - name: Instalar cargo-ndk
@@ -82,7 +139,7 @@ jobs:
         with:
           ndk-version: r26b
 
-      - name: "Compilar Core Rust para Android"
+      - name: Compilar core Rust para Android
         run: |
           mkdir -p android/app/src/main/jniLibs
           export ANDROID_NDK_HOME="${{ steps.setup-ndk.outputs.ndk-path }}"
@@ -93,7 +150,7 @@ jobs:
       - name: Configurar Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.47.9'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
           cache: true
 
@@ -103,24 +160,27 @@ jobs:
       - name: Compilar APK de Release
         run: flutter build apk --release
 
-      - name: Preparar Artefato Android
+      - name: Preparar artefato
         run: |
           mkdir -p artifacts
-          cp build/app/outputs/flutter-apk/app-release.apk artifacts/bemybench-android.apk
+          cp build/app/outputs/flutter-apk/app-release.apk \
+             "artifacts/bemybench-android-${{ needs.prepare.outputs.version }}.apk"
 
-      - name: Upload Direto do APK na Release do GitHub
+      - name: Anexar APK ao rascunho da release
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: ${{ needs.create-release.outputs.release_tag }}
-          files: artifacts/bemybench-android.apk
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          files: artifacts/*.apk
+          overwrite_files: true
 
   # ===========================================================================
-  # 3. MACOS: Compilação do Rust Core, Empacotamento DMG e Upload na Release
+  # 3. MACOS: Rust core + app assinado (ad-hoc) + DMG
   # ===========================================================================
   build-macos:
-    name: Build macOS DMG
-    needs: [create-release]
+    name: macOS DMG
+    needs: [prepare]
+    if: needs.prepare.outputs.skip != 'true'
     runs-on: macos-latest
     steps:
       - name: Checkout repositório
@@ -129,7 +189,7 @@ jobs:
       - name: Configurar Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Compilar Core Rust (macOS)
+      - name: Compilar core Rust (macOS)
         run: |
           cd rust
           cargo build --release
@@ -138,40 +198,43 @@ jobs:
       - name: Configurar Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.47.9'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
           cache: true
 
       - name: Obter dependências do Flutter
         run: flutter pub get
 
-      - name: Compilar Aplicativo macOS
+      - name: Compilar aplicativo macOS
         run: flutter build macos --release
 
-      - name: Embutir dylib Rust no Bundle e Criar DMG
+      - name: Embutir dylib Rust no bundle e criar DMG
         run: |
           APP="build/macos/Build/Products/Release/bemybench.app"
           mkdir -p "$APP/Contents/Frameworks"
           cp rust/target/release/libbemybench_core.dylib "$APP/Contents/Frameworks/"
           codesign --force --sign - "$APP/Contents/Frameworks/libbemybench_core.dylib"
           codesign --force --sign - "$APP"
-          
-          mkdir -p artifacts
-          hdiutil create -volname "BMyBench" -srcfolder "$APP" -ov -format UDZO artifacts/bemybench-macos.dmg
 
-      - name: Upload Direto do DMG na Release do GitHub
+          mkdir -p artifacts
+          hdiutil create -volname "BMyBench" -srcfolder "$APP" -ov -format UDZO \
+            "artifacts/bemybench-macos-${{ needs.prepare.outputs.version }}.dmg"
+
+      - name: Anexar DMG ao rascunho da release
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: ${{ needs.create-release.outputs.release_tag }}
-          files: artifacts/bemybench-macos.dmg
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          files: artifacts/*.dmg
+          overwrite_files: true
 
   # ===========================================================================
-  # 4. WINDOWS: Compilação do Rust Core, ZIP e Upload na Release
+  # 4. WINDOWS: Rust core + executável + instalador MSI + ZIP
   # ===========================================================================
   build-windows:
-    name: Build Windows x64
-    needs: [create-release]
+    name: Windows x64 (ZIP + MSI)
+    needs: [prepare]
+    if: needs.prepare.outputs.skip != 'true'
     runs-on: windows-latest
     steps:
       - name: Checkout repositório
@@ -180,7 +243,7 @@ jobs:
       - name: Configurar Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Compilar Core Rust (Windows x64)
+      - name: Compilar core Rust (Windows x64)
         run: |
           cd rust
           cargo build --release
@@ -189,43 +252,46 @@ jobs:
       - name: Configurar Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.47.9'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
           cache: true
 
-      - name: Habilitar Desktop Windows e Obter Dependências
+      - name: Habilitar desktop Windows e obter dependências
         run: |
           flutter config --enable-windows-desktop
           flutter pub get
 
-      - name: Compilar Executável Windows
+      - name: Compilar executável Windows
         run: flutter build windows --release
 
-      - name: Copiar DLL Rust, Assinar e Gerar Instalador MSI
+      - name: Copiar DLL Rust, assinar e gerar instalador MSI
         shell: pwsh
         run: |
           $ReleaseDir = if (Test-Path "build/windows/x64/runner/Release") { "build/windows/x64/runner/Release" } else { "build/windows/runner/Release" }
           Copy-Item "rust/target/release/bemybench_core.dll" -Destination "$ReleaseDir/"
           & powershell -ExecutionPolicy Bypass -File tool/build_msi.ps1
-          New-Item -ItemType Directory -Force -Path "artifacts"
-          Copy-Item "$ReleaseDir/bemybench-windows-x64.msi" -Destination "artifacts/bemybench-windows-x64.msi"
-          Compress-Archive -Path "$ReleaseDir/*" -DestinationPath "artifacts/bemybench-windows-x64.zip" -Force
+          New-Item -ItemType Directory -Force -Path "artifacts" | Out-Null
+          $version = "${{ needs.prepare.outputs.version }}"
+          Copy-Item "$ReleaseDir/bemybench-windows-x64.msi" -Destination "artifacts/bemybench-windows-x64-$version.msi"
+          Compress-Archive -Path "$ReleaseDir/*" -DestinationPath "artifacts/bemybench-windows-x64-$version.zip" -Force
 
-      - name: Upload do Instalador MSI e ZIP na Release do GitHub
+      - name: Anexar MSI e ZIP ao rascunho da release
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: ${{ needs.create-release.outputs.release_tag }}
+          tag_name: ${{ needs.prepare.outputs.tag }}
           files: |
-            artifacts/bemybench-windows-x64.msi
-            artifacts/bemybench-windows-x64.zip
+            artifacts/*.msi
+            artifacts/*.zip
+          overwrite_files: true
 
   # ===========================================================================
-  # 5. LINUX: Compilação do Rust Core, Pacote e Upload na Release
+  # 5. LINUX: Rust core + bundle GTK + TAR.GZ
   # ===========================================================================
   build-linux:
-    name: Build Linux x64
-    needs: [create-release]
+    name: Linux x64
+    needs: [prepare]
+    if: needs.prepare.outputs.skip != 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repositório
@@ -239,7 +305,7 @@ jobs:
       - name: Configurar Rust
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Compilar Core Rust (Linux)
+      - name: Compilar core Rust (Linux)
         run: |
           cd rust
           cargo build --release
@@ -248,30 +314,60 @@ jobs:
       - name: Configurar Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.47.9'
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           channel: 'stable'
           cache: true
 
-      - name: Habilitar Desktop Linux e Obter Dependências
+      - name: Habilitar desktop Linux e obter dependências
         run: |
           flutter config --enable-linux-desktop
           flutter pub get
 
-      - name: Compilar Bundle Linux
+      - name: Compilar bundle Linux
         run: flutter build linux --release
 
-      - name: Embutir lib Rust e Compactar Pacote Linux
+      - name: Embutir lib Rust e compactar pacote Linux
         run: |
           BUNDLE=$(find build/linux -name bundle -type d | head -n 1)
           mkdir -p "$BUNDLE/lib"
           cp rust/target/release/libbemybench_core.so "$BUNDLE/lib/"
-          
-          mkdir -p artifacts
-          tar -czvf artifacts/bemybench-linux-x64.tar.gz -C "$BUNDLE" .
 
-      - name: Upload Direto do Pacote Linux na Release do GitHub
+          mkdir -p artifacts
+          tar -czvf "artifacts/bemybench-linux-x64-${{ needs.prepare.outputs.version }}.tar.gz" -C "$BUNDLE" .
+
+      - name: Anexar pacote Linux ao rascunho da release
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          tag_name: ${{ needs.create-release.outputs.release_tag }}
-          files: artifacts/bemybench-linux-x64.tar.gz
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          files: artifacts/*.tar.gz
+          overwrite_files: true
+
+  # ===========================================================================
+  # 6. PUBLISH: só publica quando todos os pacotes foram anexados
+  # ===========================================================================
+  publish:
+    name: Publicar release
+    needs: [prepare, build-android, build-macos, build-windows, build-linux]
+    if: needs.prepare.outputs.skip != 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publicar release com os pacotes
+        uses: softprops/action-gh-release@v2
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          tag_name: ${{ needs.prepare.outputs.tag }}
+          name: "BMyBench ${{ needs.prepare.outputs.tag }} — Pacotes Multi-Plataforma"
+          draft: false
+          prerelease: false
+          make_latest: true
+
+      - name: Resumo da release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "### Release publicada: ${{ needs.prepare.outputs.tag }}" >> "$GITHUB_STEP_SUMMARY"
+          gh release view "${{ needs.prepare.outputs.tag }}" \
+            --json url,assets \
+            --template '{{.url}}{{"\n"}}{{range .assets}}- {{.name}} ({{.size}} bytes){{"\n"}}{{end}}' \
+            >> "$GITHUB_STEP_SUMMARY"

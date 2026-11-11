@@ -4,7 +4,7 @@ Todas as decisões técnicas, implementações de funcionalidades, correções d
 
 ---
 
-## [Não lançado] — 2026-11-11
+## [v1.2.0] — 2026-11-11
 
 ### Adicionado
 * **Sensores granulares em todas as plataformas:**
@@ -28,15 +28,15 @@ Todas as decisões técnicas, implementações de funcionalidades, correções d
 
 ---
 
-## [Não lançado] — 2026-11-11 (Android GPU)
+### Android — GPU, estresse de vídeo e visualização 3D
 
-### Corrigido
+#### Corrigido
 * **Benchmark de vídeo (GPU) e estresse de vídeo no Android:** os testes não existiam na plataforma — o canal `bemybench/gpu` só tinha implementação em Swift (macOS) e C++/D3D11 (Windows), e `GpuBenchmarkService.isSupported` retornava `false` no Android. O chip de GPU aparecia como "em breve" e a visualização 3D não abria.
 
-### Adicionado
+#### Adicionado
 * **Backend nativo de GPU para Android (`android/app/src/main/kotlin/com/example/bemybench/gpu/`):**
   * `OffscreenGl` — contexto EGL off-screen (Pbuffer) com OpenGL ES 2.0, 1920×1080 fixos, medindo `glFinish` por quadro para calcular fps, p99, p99.9 e 1% low.
-  * `SceneRenderer` — pipeline compartilhado de 5 passes (cena volumétrica por raymarching com fBm → bright pass → blur horizontal → blur vertical → composite com bloom, tonemap ACES, vinheta e gamma), usado tanto no benchmark quanto na visualização ao vivo.
+  * `SceneRenderer` — pipeline compartilhado de 5 passes (cena volumétrica por raymarching com fBm → bright pass → blur horizontal → blur vertical → composite com bloom, contraste e saturação), usado tanto no benchmark quanto na visualização ao vivo.
   * `GpuBenchmarkChannel` — implementa o mesmo contrato do canal `bemybench/gpu`: `info`, `run`, `run_render`, `open_3d_window`, `close_3d_window` e `is_3d_window_open`. Todo o trabalho OpenGL executa em uma thread dedicada.
   * `GpuLiveWindow` — visualização 3D ao vivo em tela cheia (diálogo + `GLSurfaceView`) com HUD nativo (FPS, ms/quadro, p99, GPU, modo e cronômetro) e botão de fechar. A cena é renderizada internamente em 1920×1080 e apenas apresentada escalada na tela, mantendo o FPS do HUD comparável ao resultado numérico.
   * Quando a visualização está aberta, `run_render` amostra o throughput real da cena ao vivo (mesma estratégia do backend Windows), evitando duas cargas concorrentes na GPU.
@@ -44,8 +44,8 @@ Todas as decisões técnicas, implementações de funcionalidades, correções d
 * **Tela de Benchmark/Estresse:** descrições e chips passam a refletir a API nativa da plataforma; o resumo de resultados exibe o pipeline real (MSAA/HDR/bloom/passes) e a cena (cubos instanciados ou raymarching) sem valores fixos do macOS.
 * **AndroidManifest:** declaração de OpenGL ES 2.0 (`uses-feature glEsVersion`) exigida pelo benchmark e pela visualização 3D.
 
-### Documentação
-* README atualizado com o backend OpenGL ES, a nova linha do status e a contagem de testes (30).
+#### Documentação
+* README atualizado com o backend OpenGL ES, a nova linha do status e a contagem de testes.
 
 ---
 

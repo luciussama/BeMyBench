@@ -308,11 +308,24 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Instalar dependências de build Linux (GTK3, CMake, Ninja, Clang)
-        timeout-minutes: 15
+        timeout-minutes: 12
+        env:
+          DEBIAN_FRONTEND: noninteractive
         run: |
-          sudo apt-get update -o Acquire::Retries=3 -o Acquire::http::Timeout=30
-          sudo apt-get install -y --no-install-recommends \
-            clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev
+          set -x
+          APT_OPTS="-o Acquire::ForceIPv4=true -o Acquire::Retries=3 -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30"
+          PKGS="clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev"
+
+          # Os runners do GitHub já vêm com listas de pacotes; tenta instalar
+          # direto e só atualiza as listas se necessário (evita travar no
+          # 'apt-get update' quando o mirror está lento ou IPv6 instável).
+          if sudo apt-get install -y --no-install-recommends $APT_OPTS $PKGS; then
+            echo "Pacotes instalados sem atualizar listas."
+          else
+            echo "Instalação direta falhou; atualizando listas e tentando de novo."
+            sudo apt-get update $APT_OPTS
+            sudo apt-get install -y --no-install-recommends $APT_OPTS $PKGS
+          fi
 
       - name: Configurar Rust
         uses: dtolnay/rust-toolchain@stable

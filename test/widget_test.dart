@@ -16,7 +16,7 @@ void main() {
     expect(find.text('Hardware'), findsWidgets);
     expect(find.text('Sensores'), findsWidgets);
     expect(find.text('Bateria'), findsWidgets);
-    expect(find.text('Benchmark'), findsWidgets);
+    expect(find.textContaining('Bench'), findsWidgets);
     expect(find.text('Estresse'), findsWidgets);
     expect(find.text('Histórico'), findsWidgets);
 

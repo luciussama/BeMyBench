@@ -251,10 +251,11 @@ class _BenchmarkScreenState extends State<BenchmarkScreen> {
             eyebrowColor: AppColors.accent,
             title: 'Benchmark de hardware',
             description:
-                'Executa os testes selecionados em sequência, medindo CPU, memória, disco '
-                'e GPU (compute + renderização ${GpuBenchmarkService.backendLabel} '
-                'off-screen). O resultado é salvo automaticamente no Histórico. O gráfico '
-                'abaixo mostra a atividade real da CPU.',
+                'Executa os testes selecionados em sequência, medindo CPU, memória, disco'
+                '${GpuBenchmarkService.isSupported ? ' e GPU (compute + renderização '
+                    '${GpuBenchmarkService.backendLabel} off-screen)' : ''}. '
+                'O resultado é salvo automaticamente no Histórico. O gráfico abaixo '
+                'mostra a atividade real da CPU.',
             action: GradientActionButton(
               label: _running ? 'EXECUTANDO...' : 'INICIAR TESTES',
               icon: _running ? Icons.hourglass_top : Icons.play_arrow,

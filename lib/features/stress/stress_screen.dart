@@ -352,7 +352,6 @@ class _StressScreenState extends State<StressScreen> {
                   '1% low (último passo)',
                   '${_latestOnePercentLow.toStringAsFixed(1)} fps',
                 ),
-                const Divider(height: 22),
                 const Row(
                   children: [
                     Icon(Icons.info_outline,
@@ -361,9 +360,10 @@ class _StressScreenState extends State<StressScreen> {
                     Expanded(
                       child: Text(
                         'Thermal throttling é inferido pela queda de fps entre o '
-                        'pico e as amostras finais. A leitura direta de '
-                        'temperatura de GPU depende de privilégios e do driver '
-                        'de cada sistema.',
+                        'pico e as amostras finais. Onde o sistema expõe sensores '
+                        'térmicos (Android), a aba Sensores mostra o estado '
+                        'térmico em tempo real; no macOS a leitura direta de '
+                        'temperatura de GPU depende de privilégios.',
                         style: TextStyle(
                           color: AppColors.textMuted,
                           fontSize: 10,

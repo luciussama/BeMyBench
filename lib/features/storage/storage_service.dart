@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/services.dart';
+
 /// Um volume montado (partição/dispositivo) com uso de espaço.
 class StorageVolume {
   final String filesystem;
@@ -23,6 +25,7 @@ class StorageVolume {
   String get label {
     if (mount == '/') return 'Raiz (/)';
     if (mount.contains(':')) return mount; // Windows C:, D:, etc.
+    if (mount.contains('Armazenamento Interno')) return 'Armazenamento Interno';
     final trimmed = mount.endsWith('/') && mount.length > 1
         ? mount.substring(0, mount.length - 1)
         : mount;
@@ -93,10 +96,13 @@ class StorageService {
     return volumes;
   }
 
-  /// Coleta os volumes montados (macOS/Linux via df, Windows via WMI).
+  /// Coleta os volumes montados (macOS/Linux via df, Windows via WMI, Android via StatFs).
   Future<List<StorageVolume>> collect() async {
     if (Platform.isWindows) {
       return _collectWindows();
+    }
+    if (Platform.isAndroid) {
+      return _collectAndroid();
     }
     if (!(Platform.isMacOS || Platform.isLinux)) return const [];
 
@@ -107,6 +113,32 @@ class StorageService {
     } catch (_) {
       return const [];
     }
+  }
+
+  Future<List<StorageVolume>> _collectAndroid() async {
+    try {
+      const channel = MethodChannel('bemybench/platform');
+      final res = await channel.invokeMapMethod<String, dynamic>('get_hardware');
+      if (res != null) {
+        final total = (res['storageTotalBytes'] as num?)?.toInt() ?? 0;
+        final free = (res['storageFreeBytes'] as num?)?.toInt() ?? 0;
+        if (total > 0) {
+          final used = (total - free).clamp(0, total);
+          final percent = ((used / total) * 100).round();
+          return [
+            StorageVolume(
+              filesystem: 'F2FS Flash Storage',
+              mount: 'Armazenamento Interno (/data)',
+              totalBytes: total,
+              usedBytes: used,
+              freeBytes: free,
+              capacityPercent: percent,
+            ),
+          ];
+        }
+      }
+    } catch (_) {}
+    return const [];
   }
 
   Future<List<StorageVolume>> _collectWindows() async {

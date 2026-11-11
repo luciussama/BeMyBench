@@ -9,9 +9,9 @@ on:
   workflow_dispatch:
     inputs:
       version_tag:
-        description: 'Tag da Versão (ex: v1.1.0)'
+        description: 'Tag da Versão (ex: v1.1.1)'
         required: true
-        default: 'v1.1.0'
+        default: 'v1.1.1'
 
 permissions:
   contents: write
@@ -37,7 +37,7 @@ jobs:
           elif [[ "${GITHUB_REF}" == refs/tags/* ]]; then
             echo "RELEASE_TAG=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
           else
-            echo "RELEASE_TAG=v1.1.0" >> $GITHUB_OUTPUT
+            echo "RELEASE_TAG=v1.1.1" >> $GITHUB_OUTPUT
           fi
 
       - name: Criar Release Pública Inicial

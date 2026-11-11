@@ -144,7 +144,7 @@ class _SensorsScreenState extends State<SensorsScreen> {
             MetricTile(
               icon: s.hasFan ? Icons.mode_fan_off : Icons.air,
               color: s.hasFan ? AppColors.violet : AppColors.accent,
-              label: 'Ventoinha',
+              label: s.hasFan ? 'Ventoinha' : 'Arrefecimento',
               value: s.hasFan
                   ? (s.fanRpm != null && s.fanRpm! > 0 ? '${s.fanRpm} RPM' : 'Auto')
                   : 'Passivo',

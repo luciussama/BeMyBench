@@ -176,6 +176,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ needs.prepare.outputs.tag }}
           files: artifacts/*.apk
+          draft: true
           overwrite_files: true
 
   # ===========================================================================
@@ -231,6 +232,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ needs.prepare.outputs.tag }}
           files: artifacts/*.dmg
+          draft: true
           overwrite_files: true
 
   # ===========================================================================
@@ -289,6 +291,7 @@ jobs:
           files: |
             artifacts/*.msi
             artifacts/*.zip
+          draft: true
           overwrite_files: true
 
   # ===========================================================================
@@ -350,6 +353,7 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ needs.prepare.outputs.tag }}
           files: artifacts/*.tar.gz
+          draft: true
           overwrite_files: true
 
   # ===========================================================================

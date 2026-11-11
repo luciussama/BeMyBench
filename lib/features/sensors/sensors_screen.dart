@@ -4,10 +4,16 @@ import 'package:flutter/material.dart';
 
 import '../../core/theme/app_colors.dart';
 import '../../core/widgets/dashboard.dart';
+import 'cpu_cores_panel.dart';
 import 'sensors_service.dart';
 
 class SensorsScreen extends StatefulWidget {
-  const SensorsScreen({super.key});
+  /// Snapshot fixo usado em testes e na pré-visualização visual; em produção
+  /// a tela coleta os dados sozinha.
+  @visibleForTesting
+  final SensorsSnapshot? debugSnapshot;
+
+  const SensorsScreen({super.key, this.debugSnapshot});
 
   @override
   State<SensorsScreen> createState() => _SensorsScreenState();
@@ -26,6 +32,14 @@ class _SensorsScreenState extends State<SensorsScreen> {
   @override
   void initState() {
     super.initState();
+    final injected = widget.debugSnapshot;
+    if (injected != null) {
+      _snapshot = injected;
+      _loading = false;
+      _cpuHistory.add(injected.cpuUsagePercent);
+      _ramHistory.add(injected.ramUsagePercent);
+      return;
+    }
     _tick();
     _timer = Timer.periodic(const Duration(seconds: 2), (_) {
       if (!_paused) _tick();
@@ -60,6 +74,18 @@ class _SensorsScreenState extends State<SensorsScreen> {
     return AppColors.red;
   }
 
+  String _tempLabel(double? temp) =>
+      temp == null ? 'N/A' : '${temp.toStringAsFixed(0)} °C';
+
+  /// Legenda de uma temperatura: origem (sensor/estimado) e detalhe opcional.
+  String _tempCaption(String source, {String? extra}) {
+    final parts = <String>[];
+    final sourceLabel = TempSource.label(source);
+    if (sourceLabel.isNotEmpty) parts.add(sourceLabel);
+    if (extra != null && extra.isNotEmpty) parts.add(extra);
+    return parts.isEmpty ? 'sem leitura' : parts.join(' · ');
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_loading || _snapshot == null) {
@@ -77,8 +103,9 @@ class _SensorsScreenState extends State<SensorsScreen> {
             eyebrow: 'BMYBENCH SENSOR MONITOR',
             title: 'Sensores em tempo real',
             description:
-                'Monitoramento contínuo de CPU, memória, temperaturas térmicas do SoC '
-                'e estado de refrigeração atualizados a cada 2 segundos.',
+                'Monitoramento contínuo de CPU (total e por núcleo), memória, '
+                'temperaturas de CPU e GPU separadas e estado de refrigeração, '
+                'atualizados a cada 2 segundos.',
             action: Wrap(
               spacing: 10,
               children: [
@@ -113,10 +140,18 @@ class _SensorsScreenState extends State<SensorsScreen> {
               icon: Icons.memory,
               color: AppColors.accent,
               label: 'Carga da CPU',
-              value: '${s.cpuUsagePercent.toStringAsFixed(1)}%',
-              caption: 'amostra a cada 2s',
-              progress: s.cpuUsagePercent / 100,
-              valueColor: AppColors.loadColor(s.cpuUsagePercent),
+              value: s.cpuUsageAvailable
+                  ? '${s.cpuUsagePercent.toStringAsFixed(1)}%'
+                  : 'N/A',
+              caption: !s.cpuUsageAvailable
+                  ? 'leitura bloqueada pelo SO'
+                  : (s.hasPerCoreLoad
+                      ? 'média ${s.perCoreAverage.toStringAsFixed(0)}% em ${s.coreCount} núcleos'
+                      : 'amostra a cada 2s'),
+              progress: s.cpuUsageAvailable ? s.cpuUsagePercent / 100 : null,
+              valueColor: s.cpuUsageAvailable
+                  ? AppColors.loadColor(s.cpuUsagePercent)
+                  : AppColors.textSecondary,
             ),
             MetricTile(
               icon: Icons.layers_outlined,
@@ -129,17 +164,24 @@ class _SensorsScreenState extends State<SensorsScreen> {
             ),
             MetricTile(
               icon: Icons.thermostat,
-              color: _tempColor(s.cpuTemperatureC ?? s.temperatureC),
-              label: 'Temperatura (CPU/GPU)',
-              value: s.cpuTemperatureC != null
-                  ? '${s.cpuTemperatureC!.toStringAsFixed(0)} °C'
-                  : (s.temperatureC != null
-                      ? '${s.temperatureC!.toStringAsFixed(0)} °C'
-                      : 'N/A'),
-              caption: s.gpuTemperatureC != null
-                  ? 'GPU: ${s.gpuTemperatureC!.toStringAsFixed(0)} °C${s.gpuUsagePercent != null ? ' (${s.gpuUsagePercent!.toStringAsFixed(0)}% uso)' : ''} · ${s.thermalState}'
-                  : s.thermalState,
-              valueColor: _tempColor(s.cpuTemperatureC ?? s.temperatureC),
+              color: _tempColor(s.cpuTemperatureC),
+              label: 'Temp. CPU',
+              value: _tempLabel(s.cpuTemperatureC),
+              caption: _tempCaption(s.cpuTempSource),
+              valueColor: _tempColor(s.cpuTemperatureC),
+            ),
+            MetricTile(
+              icon: Icons.videogame_asset_outlined,
+              color: _tempColor(s.gpuTemperatureC),
+              label: 'Temp. GPU',
+              value: _tempLabel(s.gpuTemperatureC),
+              caption: _tempCaption(
+                s.gpuTempSource,
+                extra: s.gpuUsagePercent != null
+                    ? '${s.gpuUsagePercent!.toStringAsFixed(0)}% uso'
+                    : null,
+              ),
+              valueColor: _tempColor(s.gpuTemperatureC),
             ),
             MetricTile(
               icon: s.hasFan ? Icons.mode_fan_off : Icons.air,
@@ -148,11 +190,18 @@ class _SensorsScreenState extends State<SensorsScreen> {
               value: s.hasFan
                   ? (s.fanRpm != null && s.fanRpm! > 0 ? '${s.fanRpm} RPM' : 'Auto')
                   : 'Passivo',
-              caption: s.fanStatus,
+              caption: [
+                s.fanStatus,
+                s.thermalState,
+                if (s.thermalHeadroom != null)
+                  'headroom ${s.thermalHeadroom!.toStringAsFixed(2)}',
+              ].join(' · '),
               valueColor: s.hasFan ? AppColors.violet : AppColors.accent,
             ),
           ],
         ),
+        const SizedBox(height: 16),
+        CpuCoresPanel(snapshot: s),
         const SizedBox(height: 16),
         LineChartPanel(
           title: 'Histórico de CPU',

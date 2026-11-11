@@ -84,7 +84,48 @@ pub extern "C" fn bmb_version() -> *mut c_char {
 #[cfg(target_os = "windows")]
 mod windows_telemetry {
     use std::sync::atomic::{AtomicU64, Ordering};
+    use std::sync::Mutex;
     use std::mem::zeroed;
+    use std::ptr;
+
+    /// `SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION` (NtQuerySystemInformation).
+    #[repr(C)]
+    #[derive(Copy, Clone, Default)]
+    #[allow(dead_code)]
+    struct SystemProcessorPerformanceInformation {
+        idle_time: i64,
+        kernel_time: i64,
+        user_time: i64,
+        dpc_time: i64,
+        interrupt_time: i64,
+        interrupt_count: u32,
+        reserved: u32,
+    }
+
+    /// Classe 8: tempos por processador lógico.
+    const SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION_CLASS: u32 = 8;
+
+    /// `PDH_FMT_COUNTERVALUE` (o double fica no offset 8 por alinhamento).
+    #[repr(C)]
+    #[derive(Copy, Clone, Default)]
+    struct PdhFmtCounterValue {
+        status: u32,
+        padding: u32,
+        double_value: f64,
+    }
+
+    /// `PDH_FMT_COUNTERVALUE_ITEM_W`
+    #[repr(C)]
+    #[derive(Copy, Clone)]
+    #[allow(dead_code)]
+    struct PdhFmtCounterValueItemW {
+        name: *mut u16,
+        value: PdhFmtCounterValue,
+    }
+
+    const PDH_FMT_DOUBLE: u32 = 0x0000_0200;
+    const PDH_MORE_DATA: i32 = 0x8000_07D2u32 as i32;
+    const PDH_CSTATUS_VALID_DATA: u32 = 0;
 
     #[repr(C)]
     #[derive(Copy, Clone, Default)]
@@ -123,9 +164,42 @@ mod windows_telemetry {
         fn GlobalMemoryStatusEx(lp_buffer: *mut MemoryStatusEx) -> i32;
     }
 
+    #[link(name = "ntdll")]
+    extern "system" {
+        fn NtQuerySystemInformation(
+            system_information_class: u32,
+            system_information: *mut u8,
+            system_information_length: u32,
+            return_length: *mut u32,
+        ) -> i32;
+    }
+
+    #[link(name = "pdh")]
+    extern "system" {
+        fn PdhOpenQueryW(data_source: *const u16, user_data: usize, query: *mut isize) -> i32;
+        fn PdhAddEnglishCounterW(
+            query: isize,
+            counter_path: *const u16,
+            user_data: usize,
+            counter: *mut isize,
+        ) -> i32;
+        fn PdhCollectQueryData(query: isize) -> i32;
+        fn PdhGetFormattedCounterArrayW(
+            counter: isize,
+            format: u32,
+            buffer_size: *mut u32,
+            item_count: *mut u32,
+            buffer: *mut u8,
+        ) -> i32;
+        fn PdhCloseQuery(query: isize) -> i32;
+    }
+
     static PREV_IDLE: AtomicU64 = AtomicU64::new(0);
     static PREV_KERNEL: AtomicU64 = AtomicU64::new(0);
     static PREV_USER: AtomicU64 = AtomicU64::new(0);
+
+    /// Amostra anterior por núcleo: (idle, total) em unidades de 100 ns.
+    static PREV_CORES: Mutex<Vec<(u64, u64)>> = Mutex::new(Vec::new());
 
     pub fn get_cpu_percent() -> f64 {
         unsafe {
@@ -160,6 +234,133 @@ mod windows_telemetry {
             let busy = total_sys.saturating_sub(diff_idle);
             let pct = (busy as f64 / total_sys as f64) * 100.0;
             pct.clamp(0.0, 100.0)
+        }
+    }
+
+    /// Carga por núcleo lógico (0.0 a 100.0). Devolve vazio na primeira
+    /// chamada, porque a taxa só existe depois de duas amostras.
+    pub fn get_cpu_per_core() -> Vec<f64> {
+        const MAX_CORES: usize = 512;
+        let item_size = std::mem::size_of::<SystemProcessorPerformanceInformation>();
+        let mut buffer = vec![SystemProcessorPerformanceInformation::default(); MAX_CORES];
+        let mut returned: u32 = 0;
+
+        unsafe {
+            let status = NtQuerySystemInformation(
+                SYSTEM_PROCESSOR_PERFORMANCE_INFORMATION_CLASS,
+                buffer.as_mut_ptr() as *mut u8,
+                (MAX_CORES * item_size) as u32,
+                &mut returned,
+            );
+            if status < 0 {
+                return Vec::new();
+            }
+
+            let count = (returned as usize / item_size).min(MAX_CORES);
+            if count == 0 {
+                return Vec::new();
+            }
+
+            let mut previous = match PREV_CORES.lock() {
+                Ok(guard) => guard,
+                Err(poisoned) => poisoned.into_inner(),
+            };
+            if previous.len() != count {
+                *previous = vec![(0, 0); count];
+            }
+
+            let mut loads = Vec::with_capacity(count);
+            let mut all_zero = true;
+            for index in 0..count {
+                let info = &buffer[index];
+                let idle = info.idle_time.max(0) as u64;
+                let total = (info.kernel_time.max(0) + info.user_time.max(0)) as u64;
+                let (prev_idle, prev_total) = previous[index];
+                previous[index] = (idle, total);
+
+                if prev_total == 0 || total <= prev_total {
+                    loads.push(0.0);
+                    continue;
+                }
+                all_zero = false;
+                let delta_total = (total - prev_total) as f64;
+                let delta_idle = idle.saturating_sub(prev_idle) as f64;
+                let busy = (delta_total - delta_idle).max(0.0);
+                loads.push(((busy / delta_total) * 100.0).clamp(0.0, 100.0));
+            }
+
+            if all_zero {
+                return Vec::new();
+            }
+            loads
+        }
+    }
+
+    /// Temperatura da zona térmica ACPI (em °C). Devolve -1.0 quando o
+    /// firmware/máquina não expõe a zona ou o contador não está disponível.
+    pub fn get_cpu_temp_c() -> f64 {
+        unsafe {
+            let mut query: isize = 0;
+            if PdhOpenQueryW(ptr::null(), 0, &mut query) != 0 || query == 0 {
+                return -1.0;
+            }
+
+            let mut temperature = -1.0;
+            let path: Vec<u16> = "\\Thermal Zone Information(*)\\High Precision Temperature\0"
+                .encode_utf16()
+                .collect();
+            let mut counter: isize = 0;
+            if PdhAddEnglishCounterW(query, path.as_ptr(), 0, &mut counter) == 0
+                && counter != 0
+                && PdhCollectQueryData(query) == 0
+            {
+                let mut size: u32 = 0;
+                let mut items: u32 = 0;
+                let probe = PdhGetFormattedCounterArrayW(
+                    counter,
+                    PDH_FMT_DOUBLE,
+                    &mut size,
+                    &mut items,
+                    ptr::null_mut(),
+                );
+                if probe == PDH_MORE_DATA && size > 0 {
+                    let mut buffer = vec![0u8; size as usize];
+                    let mut filled: u32 = size;
+                    let mut count: u32 = 0;
+                    let read = PdhGetFormattedCounterArrayW(
+                        counter,
+                        PDH_FMT_DOUBLE,
+                        &mut filled,
+                        &mut count,
+                        buffer.as_mut_ptr(),
+                    );
+                    if read == 0 && count > 0 {
+                        let values = std::slice::from_raw_parts(
+                            buffer.as_ptr() as *const PdhFmtCounterValueItemW,
+                            count as usize,
+                        );
+                        let mut max_celsius = f64::MIN;
+                        for item in values {
+                            if item.value.status != PDH_CSTATUS_VALID_DATA
+                                || !item.value.double_value.is_finite()
+                            {
+                                continue;
+                            }
+                            // O contador expõe décimos de Kelvin.
+                            let celsius = item.value.double_value / 10.0 - 273.15;
+                            if (-30.0..=150.0).contains(&celsius) && celsius > max_celsius {
+                                max_celsius = celsius;
+                            }
+                        }
+                        if max_celsius > f64::MIN {
+                            temperature = (max_celsius * 10.0).round() / 10.0;
+                        }
+                    }
+                }
+            }
+
+            PdhCloseQuery(query);
+            temperature
         }
     }
 
@@ -203,6 +404,46 @@ pub extern "C" fn bmb_sys_memory_info() -> *mut c_char {
         }
     }
     to_c_string("{\"total_bytes\":0,\"available_bytes\":0,\"used_bytes\":0,\"load_percent\":0}".to_string())
+}
+
+/// Carga instantânea por núcleo lógico da CPU (Windows via NtQuerySystemInformation).
+///
+/// JSON: `{"core_count": u32, "loads": [f64, ...]}` (0.0 a 100.0 por núcleo).
+/// Fora do Windows devolve `core_count: 0` — as demais plataformas leem o
+/// equivalente pelo sistema nativo delas.
+#[no_mangle]
+pub extern "C" fn bmb_sys_cpu_per_core() -> *mut c_char {
+    #[cfg(target_os = "windows")]
+    {
+        let loads = windows_telemetry::get_cpu_per_core();
+        if !loads.is_empty() {
+            let list = loads
+                .iter()
+                .map(|v| format!("{:.1}", v))
+                .collect::<Vec<_>>()
+                .join(",");
+            return to_c_string(format!(
+                "{{\"core_count\":{},\"loads\":[{}]}}",
+                loads.len(),
+                list
+            ));
+        }
+    }
+    to_c_string("{\"core_count\":0,\"loads\":[]}".to_string())
+}
+
+/// Temperatura da zona térmica ACPI da CPU em °C (Windows). Devolve -1.0
+/// quando o firmware não expõe a zona térmica.
+#[no_mangle]
+pub extern "C" fn bmb_sys_cpu_temp_c() -> f64 {
+    #[cfg(target_os = "windows")]
+    {
+        return windows_telemetry::get_cpu_temp_c();
+    }
+    #[cfg(not(target_os = "windows"))]
+    {
+        -1.0
+    }
 }
 
 /// Benchmark de CPU.
@@ -378,5 +619,60 @@ mod tests {
         assert!(mem_json.contains("total_bytes"));
         assert!(mem_json.contains("available_bytes"));
         assert!(mem_json.contains("used_bytes"));
+    }
+
+    #[test]
+    fn cpu_per_core_json_shape() {
+        let json = unsafe { take(bmb_sys_cpu_per_core()) };
+        assert!(json.starts_with("{\"core_count\":"), "json inesperado: {json}");
+        assert!(json.contains("\"loads\":["));
+        assert!(json.ends_with("]}"));
+    }
+
+    #[test]
+    fn cpu_temp_is_sane_or_unavailable() {
+        let temp = bmb_sys_cpu_temp_c();
+        // -1.0 = sem zona térmica exposta; fora disso precisa ser plausível.
+        assert!(
+            temp == -1.0 || (-30.0..150.0).contains(&temp),
+            "temperatura implausível: {temp}"
+        );
+    }
+
+    #[test]
+    #[cfg(target_os = "windows")]
+    fn windows_per_core_returns_all_cores() {
+        // A primeira leitura só registra a amostra; a segunda calcula a taxa.
+        let _ = unsafe { take(bmb_sys_cpu_per_core()) };
+        std::thread::sleep(std::time::Duration::from_millis(200));
+        let json = unsafe { take(bmb_sys_cpu_per_core()) };
+        assert!(
+            !json.contains("\"loads\":[]"),
+            "esperava cargas por núcleo: {json}"
+        );
+
+        let core_count: usize = json
+            .split("\"core_count\":")
+            .nth(1)
+            .and_then(|rest| rest.split(',').next())
+            .and_then(|value| value.trim().parse().ok())
+            .expect("core_count ausente");
+        let loads_raw = json
+            .split("\"loads\":[")
+            .nth(1)
+            .and_then(|rest| rest.strip_suffix("]}"))
+            .expect("loads ausente");
+        let loads: Vec<f64> = loads_raw
+            .split(',')
+            .filter(|part| !part.trim().is_empty())
+            .filter_map(|part| part.trim().parse().ok())
+            .collect();
+
+        assert!(core_count >= 2, "core_count suspeito: {core_count}");
+        assert_eq!(loads.len(), core_count, "cargas fora de sincronia: {json}");
+        assert!(
+            loads.iter().all(|v| (0.0..=100.0).contains(v)),
+            "carga fora de faixa: {json}"
+        );
     }
 }

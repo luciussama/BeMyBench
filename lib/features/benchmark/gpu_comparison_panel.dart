@@ -196,7 +196,9 @@ class _GpuComparisonPanelState extends State<GpuComparisonPanel> {
           Text(
             '${db.disclaimer}\nA conversão é linear e calibrada em '
             '${db.anchorDevice}. O score de raster usa o teste de renderização; '
-            'o de compute usa o de compute. Trate como estimativa, '
+            'o de compute usa o de compute. As cenas variam por API gráfica '
+            '(Metal, Direct3D 11 e OpenGL ES), então comparar resultados entre '
+            'plataformas diferentes é indicativo. Trate como estimativa, '
             'não como medida oficial.',
             style: const TextStyle(
               color: AppColors.textMuted,

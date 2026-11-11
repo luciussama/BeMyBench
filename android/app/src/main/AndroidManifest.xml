@@ -1,4 +1,8 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Benchmark e visualização 3D usam OpenGL ES 2.0 (EGL + GLSurfaceView). -->
+    <uses-feature
+        android:glEsVersion="0x00020000"
+        android:required="true" />
     <application
         android:label="bemybench"
         android:name="${applicationName}"

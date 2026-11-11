@@ -169,6 +169,7 @@ class _StressScreenState extends State<StressScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final supported = GpuBenchmarkService.isSupported;
     final maxFps = _fpsHistory.isEmpty
         ? 100.0
         : niceMax(_fpsHistory.reduce((a, b) => a > b ? a : b) * 1.15);
@@ -183,16 +184,21 @@ class _StressScreenState extends State<StressScreen> {
             eyebrow: 'BMYBENCH CONTINUOUS STRESS',
             eyebrowColor: AppColors.orange,
             title: 'Estresse contínuo de GPU',
-            description:
-                'Renderiza cena volumétrica 3D ultra-pesada estilo FurMark com VSync OFF. '
-                'Ao iniciar o estresse, a janela 3D abre automaticamente (se selecionada) '
-                'e fecha assim que o tempo escolhido terminar.',
+            description: supported
+                ? 'Renderiza uma cena volumétrica 3D ultra-pesada em '
+                    '${GpuBenchmarkService.backendLabel}, com bloom e 5 passes '
+                    'por quadro. Ao iniciar o estresse, a visualização 3D abre '
+                    'automaticamente (se selecionada) e fecha assim que o tempo '
+                    'escolhido terminar.'
+                : 'O estresse de GPU usa o backend gráfico nativo disponível no '
+                    'macOS (Metal), no Windows (Direct3D 11) e no Android '
+                    '(OpenGL ES). Esta plataforma não possui backend de GPU.',
             action: GradientActionButton(
               label: _running
                   ? (_stopping ? 'PARANDO...' : 'PARAR')
                   : 'INICIAR ESTRESSE',
               icon: _running ? Icons.stop_circle : Icons.play_arrow,
-              onPressed: _running ? _stop : _start,
+              onPressed: supported ? (_running ? _stop : _start) : null,
               colors: _running
                   ? const [Color(0xFF7F1D1D), Color(0xFFEF4444)]
                   : const [Color(0xFFC2410C), Color(0xFFF97316)],
@@ -211,16 +217,17 @@ class _StressScreenState extends State<StressScreen> {
                 label: d == 0 ? 'Contínuo (sem limite)' : '$d segundos',
                 color: d == 0 ? AppColors.red : AppColors.orange,
                 selected: _targetSeconds == d,
-                enabled: !_running,
+                enabled: !_running && supported,
                 onTap: () => setState(() => _targetSeconds = d),
               ),
-            FeatureChip(
-              label: 'Janela 3D nativa ao vivo',
-              color: AppColors.accent,
-              selected: _show3dWindow,
-              enabled: !_running,
-              onTap: () => setState(() => _show3dWindow = !_show3dWindow),
-            ),
+            if (supported)
+              FeatureChip(
+                label: GpuBenchmarkService.liveViewLabel,
+                color: AppColors.accent,
+                selected: _show3dWindow,
+                enabled: !_running,
+                onTap: () => setState(() => _show3dWindow = !_show3dWindow),
+              ),
           ],
         ),
         const SizedBox(height: 20),
@@ -353,9 +360,10 @@ class _StressScreenState extends State<StressScreen> {
                     SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Thermal throttling é inferido pela queda de fps. '
-                        'O macOS não expõe temperatura de GPU sem execução com '
-                        'privilégios.',
+                        'Thermal throttling é inferido pela queda de fps entre o '
+                        'pico e as amostras finais. A leitura direta de '
+                        'temperatura de GPU depende de privilégios e do driver '
+                        'de cada sistema.',
                         style: TextStyle(
                           color: AppColors.textMuted,
                           fontSize: 10,

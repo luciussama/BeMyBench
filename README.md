@@ -35,7 +35,7 @@ O BMyBench conta com 7 módulos principais organizados na barra de navegação s
    * **CPU Benchmark:** Teste single-core e multi-core em janela fixa de tempo com algoritmo misto de operações inteiras (xorshift), ponto flutuante e memória local.
    * **Memória Benchmark:** Medição de largura de banda sequencial (GB/s) de leitura/escrita e latência de acesso aleatório via pointer chasing (ns).
    * **Disco Benchmark:** Medição sequencial de leitura/escrita em arquivo temporário com limpeza automática ao término.
-   * **GPU Benchmark (Metal / Vulkan):** Pipeline HDR off-screen completo a 1920×1080 com MSAA 4×, 1.024 cubos instanciados, iluminação difusa/especular, céu procedural, bloom e tonemap ACES. Mede FPS médio e frame pacing (1% low e p99).
+   * **GPU Benchmark (Metal / Direct3D 11 / OpenGL ES):** Pipeline HDR off-screen completo a 1920×1080 com MSAA 4×, 1.024 cubos instanciados, iluminação difusa/especular, céu procedural, bloom e tonemap ACES. Mede FPS médio e frame pacing (1% low e p99). No Android o mesmo teste roda em OpenGL ES 2.0 (EGL off-screen) com cena volumétrica por raymarching, bloom em 5 passes e frame pacing medido por quadro.
    * **Painel Comparativo:** Banco de dados integrado de dispositivos de referência para comparação direta de performance.
 
 5. **Estresse (Estresse Térmico e Torture Test):**
@@ -63,7 +63,7 @@ BeMyBench/
 ├── .github/workflows/
 │   ├── ci.yml                 # Testes contínuos e análise estática (Ubuntu e macOS)
 │   └── release.yml            # Pipeline de build e publicação multi-plataforma (4 OS)
-├── android/                   # Projeto Android nativo (Gradle Kotlin DSL, Java 17)
+├── android/                   # Projeto Android nativo (Gradle Kotlin DSL, Java 17, OpenGL ES)
 ├── docs/                      # Planejamento, arquitetura e rastreabilidade técnica
 │   ├── BMyBench_MVP_Planning.md
 │   ├── system_tweaks_architecture.md
@@ -94,7 +94,7 @@ BeMyBench/
 |---|---|
 | **Interface (UI)** | Flutter 3.47.9 / Dart 3.13.7 com tema adaptativo desktop/touch |
 | **Motor de Benchmark** | Rust 1.99.1 via C-ABI nativa pura (`dart:ffi`), sem overhead de bridge |
-| **Gráficos & Render** | Apple Metal nativo (macOS) e shaders computacionais |
+| **Gráficos & Render** | Metal (macOS), Direct3D 11 + Direct2D (Windows) e OpenGL ES 2.0 + EGL (Android) |
 | **Dados do Sistema** | Execução de comandos nativos de baixo nível (`sysctl`, `ioreg`, WMI, `/proc`, `lspci`) |
 | **CI/CD** | GitHub Actions com runners nativos Ubuntu, macOS e Windows |
 
@@ -109,6 +109,8 @@ BeMyBench/
 | **Fase 1 — Sensores** | ✅ | Telemetria contínua de carga de CPU e uso de memória em tempo real |
 | **Fase 2 — Benchmarks Leves** | ✅ | Benchmarks em Rust de CPU (single/multi), Memória (banda/latência) e Disco |
 | **Fase 2 — GPU Metal HDR** | ✅ | Render HDR off-screen com MSAA 4×, 1.024 cubos e frame pacing (1% low/p99) |
+| **Fase 2 — GPU Direct3D 11** | ✅ | Backend nativo Windows (D3D11) com HUD Direct2D/DirectWrite e VSync desligado |
+| **Fase 2 — GPU OpenGL ES (Android)** | ✅ | Backend nativo Android (EGL + GLES 2.0): compute, render com bloom e visualização 3D em tela cheia com HUD |
 | **Fase 2 — Estresse Contínuo** | ✅ | Teste de estresse contínuo com detecção de thermal throttling |
 | **Iteração 2 — Storage & Histórico** | ✅ | Breakdown de volumes montados e persistência de histórico local |
 | **Iteração 3 — Janela 3D Desvinculada** | ✅ | Suporte a VSync uncapped e HUD de telemetria gráfica |
@@ -142,7 +144,7 @@ flutter run -d macos
 ### Comandos de Verificação
 ```bash
 flutter analyze                     # Análise estática de código (0 erros/avisos)
-flutter test                        # Executa todos os 28 testes unitários e de widget
+flutter test                        # Executa todos os 30 testes unitários e de widget
 cd rust && cargo test --release     # Executa testes unitários do core de benchmark
 ```
 
